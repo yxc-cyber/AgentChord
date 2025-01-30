@@ -2,11 +2,11 @@ from typing import Any, Callable, Type
 
 from ..environment import BaseEnvironment
 from ..metadata import BaseMetaData
-from ..utils import Action, SubsystemSequence
+from ..utils import Action, Logger, SubsystemSequence
 
 
 class BaseAgentSystem:
-    def __init__(self, system_name: str, environment: BaseEnvironment):
+    def __init__(self, system_name: str, environment: BaseEnvironment, maximum_loops: int = 50, log_name: str = ""):
         self.subsystems = dict()
         self.on_start_actions = dict()
         self.on_completion_actions = dict()
@@ -14,9 +14,13 @@ class BaseAgentSystem:
         self.system_name = system_name
         self.environment = environment
         self.tool_descriptions = environment.get_tool_descriptions().values() if environment.get_tool_descriptions().values() else None
+        self.maximum_loops = maximum_loops
+        self.log_name = log_name
+        self.logger = Logger(self.system_name, self.log_name)
 
     def completion_loop(self, meta_data: BaseMetaData) -> BaseMetaData:
-        if not self.subsystem_sequence.is_done():
+        loop_counter = 0
+        while not self.subsystem_sequence.is_done() and loop_counter < self.maximum_loops:
             current_subsystem_name = self.subsystem_sequence.get_current_subsystem_name()
             self.subsystem_sequence.update_next_subsystem()
             if current_subsystem_name in self.on_start_actions:
@@ -24,12 +28,17 @@ class BaseAgentSystem:
             self.subsystems[current_subsystem_name].completion_loop(meta_data)
             if current_subsystem_name in self.on_completion_actions:
                 meta_data = self.on_completion_actions[current_subsystem_name](meta_data)
+            if self.environment.is_done():
+                self.subsystem_sequence.set_done()
+            loop_counter += 1
         return meta_data
         
-    def start(self) -> Any:
+    def run(self, debug: bool = False, log_name: str = "") -> Any:
+        self.log_initialization(debug, log_name)
         meta_data = self.on_initialization()
         meta_data = self.completion_loop(meta_data)
         final_data = self.on_finalization(meta_data)
+        self.log_finalization(log_name)
         return final_data
 
     def add_subsystem(self, subsystem: Type["BaseAgentSystem"]):
@@ -81,19 +90,45 @@ class BaseAgentSystem:
     def on_finalization(self, meta_data: BaseMetaData) -> Any:
         final_data = meta_data
         return final_data
+    
+    def log_initialization(self, debug: bool, log_name: str):
+        self.set_debug_level(debug)
+        if log_name:
+            self.set_log_redirection(log_name)
 
-    def get_pipeline_description_list(self, indent_level: int = 0) -> list:
+    def log_finalization(self, log_name: str):
+        self.set_debug_level(False)
+        if log_name:
+            self.set_log_redirection(self.log_name)
+
+    def get_pipeline_description_list(self) -> list:
         description_list = list()
-        for subsystem_name, subsystem in self.subsystem_sequence.items():
+        for subsystem_name in self.subsystem_sequence:
+            subsystem = self.subsystems[subsystem_name]
             if subsystem_name in self.on_start_actions:
-                description_list.append(f"On Start Action: {self.on_start_actions[subsystem_name].action_name}")
+                on_start_action = self.on_start_actions[subsystem_name]
+                description_list.append(f"On Start Action: {on_start_action.action_name} ({on_start_action.__class__})")
             description_list.append(f"Agent System: {subsystem_name} ({subsystem.__class__})")
-            description_list.extend(subsystem.get_pipeline_description_list(indent_level+1))
+            description_list.extend(subsystem.get_pipeline_description_list())
             if subsystem_name in self.on_completion_actions:
-                description_list.append(f"On Completion Action: {self.on_completion_actions[subsystem_name].action_name}")
-        description_list = ["- "*indent_level + desc for desc in description_list]
+                on_completion_action = self.on_completion_actions[subsystem_name]
+                description_list.append(f"On Completion Action: {on_completion_action.action_name} ({on_completion_action.__class__})")
+        description_list = ["- " + desc for desc in description_list]
         return description_list
     
     def get_pipeline_description(self) -> str:
         description_list = self.get_pipeline_description_list()
-        return "\n".join(description_list)
+        result_list = [f"Agent System: {self.system_name} ({self.__class__})"] + description_list
+        return "\n".join(result_list)
+    
+    def set_debug_level(self, debug: bool):
+        self.logger.set_debug_level(debug)
+        for subsystem_name in self.subsystem_sequence:
+            subsystem = self.subsystems[subsystem_name]
+            subsystem.set_debug_level(debug)
+
+    def set_log_redirection(self, file_name: str):
+        self.logger.set_log_redirection(file_name)
+        for subsystem_name in self.subsystem_sequence:
+            subsystem = self.subsystems[subsystem_name]
+            subsystem.set_log_redirection(file_name)

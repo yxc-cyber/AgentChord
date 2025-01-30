@@ -5,13 +5,13 @@ import litellm
 
 from ..environment import BaseEnvironment
 from ..metadata import BaseMetaData
-from ..utils import Logger, ModelConfig
+from ..utils import ModelConfig
 from .base_agent_system import BaseAgentSystem
 
 
 class BaseAgent(BaseAgentSystem):
-    def __init__(self, system_name: str, environment: BaseEnvironment, prompt: str, model_config: ModelConfig):
-        super().__init__(system_name=system_name, environment=environment)
+    def __init__(self, system_name: str, environment: BaseEnvironment, prompt: str, model_config: ModelConfig, log_name: str = ""):
+        super().__init__(system_name=system_name, environment=environment, log_name=log_name)
         self.subsystems = None
         self.on_start_actions = None
         self.on_completion_actions = None
@@ -19,7 +19,7 @@ class BaseAgent(BaseAgentSystem):
         self.prompt = prompt
         self.client_config = model_config.client_config
         self.messages = list()
-        self.logger = Logger(self.system_name)
+        self.messages_initialization()
 
     def completion_loop(self, meta_data: BaseMetaData) -> BaseMetaData:
         meta_data = self.completion(meta_data)
@@ -36,7 +36,7 @@ class BaseAgent(BaseAgentSystem):
             **self.client_config
         ).choices[0].message
         self.logger.debug(f"New message: {output_message.json()}")
-        self.messages.append(output_message)
+        self.messages.append(output_message.json())
         if output_message.tool_calls:
             tool_call_id = output_message.tool_calls[0].id
             tool_name = output_message.tool_calls[0].function.name
@@ -72,8 +72,14 @@ class BaseAgent(BaseAgentSystem):
     def messages_initialization(self):
         self.messages = [{"role": "system", "content": self.prompt}]
 
-    def get_pipeline_description_list(self, indent_level: int) -> list:
+    def get_pipeline_description_list(self) -> list:
         return list()
     
     def get_pipeline_description(self) -> str:
         return f"Agent: {self.system_name} ({self.__class__})"
+    
+    def set_debug_level(self, debug: bool):
+        self.logger.set_debug_level(debug)
+
+    def set_log_redirection(self, file_name: str):
+        self.logger.set_log_redirection(file_name)

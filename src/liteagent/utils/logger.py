@@ -18,17 +18,25 @@ class Logger:
         )
         self.stream_handler = logging.StreamHandler()
         self.stream_handler.setFormatter(self.formatter)
-        file_path = os.path.join(LOG_PATH, f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log") if not file_name else os.path.join(LOG_PATH, file_name)
-        self.file_handler = RotatingFileHandler(file_path, maxBytes=10485760, backupCount=5)
+        self.file_path = os.path.join(LOG_PATH, f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log") if not file_name else os.path.join(LOG_PATH, file_name)
+        self.file_handler = RotatingFileHandler(self.file_path, maxBytes=10485760, backupCount=5)
         self.file_handler.setFormatter(self.formatter)
         self.logger.addHandler(self.stream_handler)
         self.logger.addHandler(self.file_handler)
+        self.set_debug_level(False)
 
     def set_log_redirection(self, file_name: str):
         self.logger.removeHandler(self.file_handler)
-        self.file_handler = RotatingFileHandler(file_name, maxBytes=10485760, backupCount=5)
+        file_path = self.file_path if not file_name else os.path.join(LOG_PATH, file_name)
+        self.file_handler = RotatingFileHandler(file_path, maxBytes=10485760, backupCount=5)
         self.file_handler.setFormatter(self.formatter)
         self.logger.addHandler(self.file_handler)
+
+    def set_debug_level(self, debug: bool):
+        if debug:
+            self.stream_handler.setLevel(logging.DEBUG)
+        else:
+            self.stream_handler.setLevel(logging.INFO)
 
     def debug(self, message: str):
         self.logger.debug(message)

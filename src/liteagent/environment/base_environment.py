@@ -8,6 +8,7 @@ class BaseEnvironment:
         self.tool_handlers = dict()
         self.tool_descriptions = dict()
         self.initial_setup = initial_setup
+        self.done = False
         
     def get_tool_descriptions(self) -> dict:
         return self.tool_descriptions
@@ -23,3 +24,9 @@ class BaseEnvironment:
     
     def apply_tool(self, tool_name: str, tool_arguments: dict):
         return self.tool_handlers[tool_name](**tool_arguments)
+    
+    def set_done(self):
+        self.done = True
+
+    def is_done(self) -> bool:
+        return self.done
