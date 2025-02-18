@@ -3,6 +3,8 @@
 
 # Private files
 .env
+logs/*
+!logs/app.log
 **/scratch.py
 
 # Large files

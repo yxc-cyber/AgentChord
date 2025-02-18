@@ -1,4 +1,4 @@
-class SubsystemSequence(list):
+class BaseSequence(list):
     def __init__(self):
         self.next_subsystem_idx = 0
         self.next_subsystem_name = None
@@ -41,6 +41,9 @@ class SubsystemSequence(list):
     
     def set_done(self):
         self.done = True
+
+    def set_not_done(self):
+        self.done = False
 
     def is_done(self) -> bool:
         return self.done

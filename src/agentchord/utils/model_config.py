@@ -4,5 +4,5 @@ from typing import Any
 
 @dataclass
 class ModelConfig:
-    client_config: dict = field(default_factory=dict)
+    client_model: str = None
     local_model: Any = None

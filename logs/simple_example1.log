@@ -1,8 +1,0 @@
-[2025-01-30 16:40:52,357] [DEBUG] [base_agent]: On initialization
-[2025-01-30 16:40:52,357] [DEBUG] [base_agent]: Initialization done
-[2025-01-30 16:40:52,358] [DEBUG] [base_agent]: Receiving BaseMetaData(input='Nice to meet you!', tool={}, output='')
-[2025-01-30 16:40:52,359] [DEBUG] [base_agent]: Message history: [{'role': 'system', 'content': 'You are a helpful agent that can repeat what the user says.'}, {'role': 'user', 'content': 'Nice to meet you!'}]
-[2025-01-30 16:40:53,173] [DEBUG] [base_agent]: New message: {'content': 'Nice to meet you too!', 'role': 'assistant', 'tool_calls': None, 'function_call': None}
-[2025-01-30 16:40:53,173] [DEBUG] [base_agent]: Returning BaseMetaData(input='Nice to meet you!', tool=None, output='Nice to meet you too!')
-[2025-01-30 16:40:53,174] [DEBUG] [base_agent]: On finalization
-[2025-01-30 16:40:53,175] [DEBUG] [base_agent]: Finalization done

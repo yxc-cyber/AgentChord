@@ -11,7 +11,7 @@ class CountDownSystem(BaseAgentSystem):
     def __init__(self, system_name, environment):
         super().__init__(system_name, environment)
         prompt = "You are a helpful agent that recieves a number and returns the value of that number minus one. If that value is zero, return !!! instead."
-        model_config = ModelConfig(client_config={"model": "openai/gpt-4o"})
+        model_config = ModelConfig(client_model="openai/gpt-4o")
         self.add_subsystem(BaseAgent("countdown_agent", environment, prompt, model_config))
         self.add_on_completion_action("countdown_agent", "check_stopping_criteria", self._check_stopping_criteria)
 

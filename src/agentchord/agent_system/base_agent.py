@@ -1,7 +1,8 @@
 import json
-from typing import Any
+from typing import Any, List
 
 import litellm
+from litellm import Message
 
 from ..environment import BaseEnvironment
 from ..metadata import BaseMetaData
@@ -17,24 +18,32 @@ class BaseAgent(BaseAgentSystem):
         self.on_completion_actions = None
         self.subsystem_sequence = None
         self.prompt = prompt
-        self.client_config = model_config.client_config
+        self.model_config = model_config
         self.messages = list()
         self.messages_initialization()
 
-    def completion_loop(self, meta_data: BaseMetaData) -> BaseMetaData:
-        meta_data = self.completion(meta_data)
+    def execution_loop(self, meta_data: BaseMetaData) -> BaseMetaData:
+        meta_data = self.execution(meta_data)
         return meta_data
     
-    def completion(self, meta_data: BaseMetaData) -> BaseMetaData:
+    def completion(self, messages: List[dict]) -> Message:
+        if self.model_config.client_model:
+            output_message = litellm.completion(
+                messages=messages,
+                tools=self.tool_descriptions,
+                model=self.model_config.client_model
+            ).choices[0].message
+        else:
+            # Todo: adapt local models
+            raise NotImplementedError
+        return output_message
+    
+    def execution(self, meta_data: BaseMetaData) -> BaseMetaData:
         self.logger.debug(f"Receiving {meta_data}")
         input_content = meta_data.input
         self.messages.append({"role": "user", "content": input_content})
         self.logger.debug(f"Message history: {self.messages}")
-        output_message = litellm.completion(
-            messages=self.messages,
-            tools=self.tool_descriptions,
-            **self.client_config
-        ).choices[0].message
+        output_message = self.completion(self.messages)
         self.logger.debug(f"New message: {output_message.json()}")
         self.messages.append(output_message.json())
         if output_message.tool_calls:
@@ -44,7 +53,7 @@ class BaseAgent(BaseAgentSystem):
             tool_result = self.environment.apply_tool(tool_name, tool_arguments)
             self.messages.append({
                 "role":"tool",
-                "tool_call_id":tool_call_id, 
+                "tool_call_id":tool_call_id,
                 "name": tool_name, 
                 "content":tool_result
             })
