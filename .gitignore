@@ -1,5 +1,9 @@
+# Cache files
 **/__pycache__/
 
+# Private files
 .env
 **/scratch.py
-src/liteagent/environment/multiwoz_24_environment/
+
+# Large files
+src/agentchord/environment/multiwoz_24_environment/MultiWOZ2.4

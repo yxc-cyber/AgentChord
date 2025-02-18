@@ -1,4 +1,4 @@
-from liteagent import BaseAgent, BaseEnvironment, BaseMetaData, ModelConfig
+from agentchord import BaseAgent, BaseEnvironment, BaseMetaData, ModelConfig
 
 prompt = "You are a helpful agent that can repeat what the user says."
 model_config = ModelConfig(client_config={

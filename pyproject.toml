@@ -1,7 +1,7 @@
 [project]
-name = "liteagent"
+name = "agentchord"
 version = "0.1.0"
-description = "Add your description here"
+description = "This is a multi-agent framework that effectively orchestrates agent collaborations and optimizes the settings of the agents."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -9,7 +9,7 @@ dependencies = [
 ]
 
 [project.scripts]
-liteagent = "liteagent:main"
+agentchord = "agentchord:main"
 
 [build-system]
 requires = ["hatchling"]

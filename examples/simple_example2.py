@@ -1,4 +1,4 @@
-from liteagent import (
+from agentchord import (
     BaseAgent,
     BaseAgentSystem,
     BaseEnvironment,
