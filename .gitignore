@@ -3,9 +3,9 @@
 
 # Private files
 .env
-logs/*
+logs/
 !logs/app.log
 **/scratch.py
 
 # Large files
-src/agentchord/environment/multiwoz_24_environment/MultiWOZ2.4
+src/agentchord/environment/multiwoz_24_environment/MultiWOZ2.4/

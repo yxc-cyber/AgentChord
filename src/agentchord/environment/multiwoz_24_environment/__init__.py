@@ -1,2 +1,1 @@
-from .base_environment import BaseEnvironment
 from .multiwoz_24_environment import Multiwoz24Environment
