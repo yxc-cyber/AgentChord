@@ -5,7 +5,7 @@ model_config = ModelConfig(client_config={
     "model": "openai/gpt-4o"
 })
 inital_setup = BaseMetaData(input="Nice to meet you!")
-base_environment = BaseEnvironment(initial_setup=inital_setup)
+base_environment = BaseEnvironment(initial_metadata=inital_setup)
 base_agent = BaseAgent(
     system_name="base_agent",
     prompt=prompt,

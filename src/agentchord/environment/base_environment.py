@@ -1,22 +1,29 @@
-from typing import Callable
+from typing import Callable, Union
 
 from ..metadata import BaseMetaData
 
 
 class BaseEnvironment:
-    def __init__(self, initial_setup: BaseMetaData):
+    @classmethod
+    def iterate_test_cases(cls):
+        pass
+
+    def __init__(self, initial_metadata: Union[BaseMetaData, None] = None):
         self.tool_handlers = dict()
         self.tool_descriptions = dict()
-        self.initial_setup = initial_setup
+        self.initial_metadata = initial_metadata if initial_metadata is not None else BaseMetaData()
         self.done = False
         
     def get_tool_descriptions(self) -> dict:
         return self.tool_descriptions
     
-    def get_initial_setup(self) -> BaseMetaData:
-        return self.initial_setup
+    def set_initial_metadata(self, initial_metadata: BaseMetaData):
+        self.initial_metadata = initial_metadata
     
-    def register_tool(self, tool_name: str, tool_description: str, tool_handler: Callable):
+    def get_initial_metadata(self) -> BaseMetaData:
+        return self.initial_metadata
+    
+    def register_tool(self, tool_name: str, tool_description: dict, tool_handler: Callable):
         if tool_name in self.tool_handlers or tool_name in self.tool_descriptions:
             raise Exception(f"Tool {tool_name} is already registered!")
         self.tool_handlers[tool_name] = tool_handler
@@ -30,3 +37,6 @@ class BaseEnvironment:
 
     def is_done(self) -> bool:
         return self.done
+    
+    def evaluate(self):
+        pass

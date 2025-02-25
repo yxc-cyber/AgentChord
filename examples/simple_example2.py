@@ -27,7 +27,7 @@ class CountDownSystem(BaseAgentSystem):
     
 
 inital_setup = BaseMetaData(input="Five")
-countdown_environment = BaseEnvironment(initial_setup=inital_setup)
+countdown_environment = BaseEnvironment(initial_metadata=inital_setup)
 countdown_system = CountDownSystem("countdown_system", countdown_environment)
 
 print("System pipeline:")

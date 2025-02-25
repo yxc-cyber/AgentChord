@@ -4,5 +4,6 @@ from dataclasses import dataclass, field
 @dataclass
 class BaseMetaData:
     input: str = ""
-    tool: dict = field(default_factory=dict)
+    note: str = ""
+    tool: dict = field(default_factory=list)
     output: str = ""

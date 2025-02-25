@@ -6,7 +6,7 @@ from litellm import Message
 
 from ..environment import BaseEnvironment
 from ..metadata import BaseMetaData
-from ..utils import ModelConfig
+from ..utils import EMPTY_PLACEHOLDER, INPUT_WITH_NOTE, NOTE_NO_ACTION, ModelConfig
 from .base_agent_system import BaseAgentSystem
 
 
@@ -22,7 +22,7 @@ class BaseAgent(BaseAgentSystem):
         self.messages = list()
         self.messages_initialization()
 
-    def execution_loop(self, meta_data: BaseMetaData) -> BaseMetaData:
+    def execution_loop(self, meta_data: BaseMetaData, loop: bool = False) -> BaseMetaData:
         meta_data = self.execution(meta_data)
         return meta_data
     
@@ -41,34 +41,58 @@ class BaseAgent(BaseAgentSystem):
     def execution(self, meta_data: BaseMetaData) -> BaseMetaData:
         self.logger.debug(f"Receiving {meta_data}")
         input_content = meta_data.input
-        self.messages.append({"role": "user", "content": input_content})
-        self.logger.debug(f"Message history: {self.messages}")
-        output_message = self.completion(self.messages)
-        self.logger.debug(f"New message: {output_message.json()}")
-        self.messages.append(output_message.json())
-        if output_message.tool_calls:
-            tool_call_id = output_message.tool_calls[0].id
-            tool_name = output_message.tool_calls[0].function.name
-            tool_arguments = json.loads(output_message.tool_calls[0].function.arguments)
-            tool_result = self.environment.apply_tool(tool_name, tool_arguments)
-            self.messages.append({
-                "role":"tool",
-                "tool_call_id":tool_call_id,
-                "name": tool_name, 
-                "content":tool_result
-            })
-            meta_data.output = None
-            meta_data.tool = {"tool_name": tool_name, "tool_arguments": tool_arguments, "tool_result": tool_result}
-        else:
-            meta_data.output = output_message.content
-            meta_data.tool = None
+        previous_note = meta_data.note
+        previous_tool_usage = meta_data.tool
+        meta_data.input = ""
+        meta_data.tool = list()
+        self.messages.append({
+            "role": "user",
+            "content": INPUT_WITH_NOTE.format(
+                input = input_content or EMPTY_PLACEHOLDER,
+                note = previous_note or EMPTY_PLACEHOLDER
+            )
+        })
+        terminate = False
+        while not terminate:
+            self.logger.debug(f"Message history: {self.messages}")
+            output_message = self.completion(self.messages)
+            self.logger.debug(f"New message: {output_message.json()}")
+            self.messages.append(output_message.json())
+            if output_message.tool_calls:
+                tool_call_id = output_message.tool_calls[0].id
+                tool_name = output_message.tool_calls[0].function.name
+                tool_arguments = json.loads(output_message.tool_calls[0].function.arguments)
+                if tool_name == self.inner_environment.TERMINATE:
+                    tool_result = self.inner_environment.apply_tool(tool_name, tool_arguments)
+                    meta_data.output = tool_result["output"]
+                    meta_data.note = tool_result["note"]
+                    terminate = True
+                else:
+                    tool_result = self.environment.apply_tool(tool_name, tool_arguments)
+                    self.messages.append({
+                        "role":"tool",
+                        "tool_call_id":tool_call_id,
+                        "name": tool_name,
+                        "content":tool_result
+                    })
+                    meta_data.tool.append({"tool_name": tool_name, "tool_arguments": tool_arguments, "tool_result": tool_result})
+            else:
+                meta_data.output = ""
+                meta_data.note = NOTE_NO_ACTION.format(
+                    output = output_message.content or EMPTY_PLACEHOLDER
+                )
+                terminate = True
         self.logger.debug(f"Returning {meta_data}")
         return meta_data
+    
+    def set_environment(self, environment):
+        self.messages_initialization()
+        super().set_environment(environment)
     
     def on_initialization(self) -> BaseMetaData:
         self.logger.debug("On initialization")
         self.messages_initialization()
-        meta_data = self.environment.get_initial_setup()
+        meta_data = self.environment.get_initial_metadata()
         self.logger.debug("Initialization done")
         return meta_data
     

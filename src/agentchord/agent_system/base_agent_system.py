@@ -1,6 +1,6 @@
 from typing import Any, Callable, Type
 
-from ..environment import BaseEnvironment
+from ..environment import BaseEnvironment, InnerEnvironment
 from ..metadata import BaseMetaData
 from ..sequence import BaseSequence
 from ..utils import Action, Logger
@@ -13,14 +13,17 @@ class BaseAgentSystem:
         self.on_completion_actions = dict()
         self.subsystem_sequence = BaseSequence()
         self.system_name = system_name
-        self.environment = environment
-        self.tool_descriptions = environment.get_tool_descriptions().values() if environment.get_tool_descriptions().values() else None
         self.maximum_loops = maximum_loops
         self.log_name = log_name
         self.logger = Logger(self.system_name, self.log_name)
         self.parent_number = 0
+        self.tool_descriptions = None
+        self.environment = None
+        self.inner_environment = None
+        self.set_environment(environment)
+        self.set_inner_environment(InnerEnvironment())
 
-    def execution_loop(self, meta_data: BaseMetaData) -> BaseMetaData:
+    def execution_loop(self, meta_data: BaseMetaData, loop: bool = False) -> BaseMetaData:
         self.subsystem_sequence.set_not_done()
         loop_counter = 0
         while not self.subsystem_sequence.is_done() and loop_counter < self.maximum_loops:
@@ -38,18 +41,46 @@ class BaseAgentSystem:
             if self.environment.is_done():
                 self.subsystem_sequence.set_done()
             # Only the root system controls the loop.
-            if self.parent_number > 0:
+            if self.parent_number > 0 or not loop:
                 break
             loop_counter += 1
         return meta_data
         
-    def run(self, debug: bool = False, log_name: str = "") -> Any:
+    def run(self, debug: bool = False, log_name: str = "", loop: bool = False) -> Any:
         self.log_initialization(debug, log_name)
         meta_data = self.on_initialization()
-        meta_data = self.execution_loop(meta_data)
+        meta_data = self.execution_loop(meta_data, loop)
         final_data = self.on_finalization(meta_data)
         self.log_finalization(log_name)
         return final_data
+
+    def set_environment(self, environment: BaseEnvironment):
+        self.environment = environment
+        self.set_tool_descriptions()
+        for subsystem_name in self.subsystem_sequence:
+            subsystem = self.subsystems[subsystem_name]
+            subsystem.set_environment(environment)
+
+    def set_inner_environment(self, inner_environment: InnerEnvironment):
+        self.inner_environment = inner_environment
+        self.set_tool_descriptions()
+        for subsystem_name in self.subsystem_sequence:
+            subsystem = self.subsystems[subsystem_name]
+            subsystem.set_inner_environment(inner_environment)
+
+    def set_tool_descriptions(self):
+        if self.environment and self.environment.get_tool_descriptions() and self.inner_environment and self.inner_environment.get_tool_descriptions():
+            environment_tool_names = set(self.environment.get_tool_descriptions().keys())
+            inner_environment_tool_names = set(self.inner_environment.get_tool_descriptions().keys())
+            common_tool_names = environment_tool_names.intersection(inner_environment_tool_names)
+            if common_tool_names:
+                raise Exception(f"""Tool names {", ".join(common_tool_names)} are duplicated!""")
+        if self.environment and self.environment.get_tool_descriptions():
+            self.tool_descriptions = list(self.environment.get_tool_descriptions().values())
+            if self.inner_environment and self.inner_environment.get_tool_descriptions():
+                self.tool_descriptions.extend(list(self.inner_environment.get_tool_descriptions().values()))
+        elif self.inner_environment and self.inner_environment.get_tool_descriptions():
+            self.tool_descriptions = list(self.inner_environment.get_tool_descriptions().values())
 
     def add_subsystem(self, subsystem: Type["BaseAgentSystem"]):
         subsystem_name = subsystem.system_name
@@ -58,6 +89,8 @@ class BaseAgentSystem:
         subsystem.parent_number += 1
         self.subsystems[subsystem_name] = subsystem
         self.subsystem_sequence.append(subsystem_name)
+        subsystem.set_environment(self.environment)
+        subsystem.set_inner_environment(self.inner_environment)
 
     def del_subsystem(self, subsystem_name: str):
         if subsystem_name not in self.subsystems:
@@ -96,7 +129,7 @@ class BaseAgentSystem:
         del self.on_completion_actions[subsystem_name]
 
     def on_initialization(self) -> BaseMetaData:
-        meta_data = self.environment.get_initial_setup()
+        meta_data = self.environment.get_initial_metadata()
         return meta_data
     
     def on_finalization(self, meta_data: BaseMetaData) -> Any:
