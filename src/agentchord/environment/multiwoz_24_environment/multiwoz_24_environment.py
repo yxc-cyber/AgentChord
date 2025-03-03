@@ -131,7 +131,7 @@ class Multiwoz24Environment(BaseEnvironment):
         true_positive, false_negative, false_positive = 0, 0, 0
         # Todo
 
-    def _query_basic(self, domain: str, max_retrieval: int = 10, fuzzy_ratio: int = 80, **query) -> dict:
+    def _query_basic(self, domain: str, max_retrieval: int = 10, fuzzy_ratio: int = 80, **query) -> str:
         valid_items = []
         for database_item in database[domain]:
             valid = True
@@ -161,7 +161,7 @@ class Multiwoz24Environment(BaseEnvironment):
             pricerange: Optional[str] = None,
             food: Optional[str] = None,
             name: Optional[str] = None,
-        ) -> dict:
+        ) -> str:
         return self._query_basic(
             domain = "restaurant",
             area = area,
@@ -179,7 +179,7 @@ class Multiwoz24Environment(BaseEnvironment):
             pricerange: Optional[str] = None,
             stars: Optional[str] = None,
             type: Optional[str] = None,
-        ) -> dict:
+        ) -> str:
         return self._query_basic(
             domain = "hotel",
             area = area,
@@ -196,7 +196,7 @@ class Multiwoz24Environment(BaseEnvironment):
             area: Optional[str] = None,
             name: Optional[str] = None,
             type: Optional[str] = None,
-        ) -> dict:
+        ) -> str:
         return self._query_basic(
             domain = "attraction",
             area = area,
@@ -212,7 +212,7 @@ class Multiwoz24Environment(BaseEnvironment):
             leaveAt: Optional[str] = None,
             arriveBy: Optional[str] = None,
             trainID: Optional[str] = None,
-        ) -> dict:
+        ) -> str:
         return self._query_basic(
             domain = "train",
             day = day,
@@ -223,7 +223,7 @@ class Multiwoz24Environment(BaseEnvironment):
             trainID = trainID,
         )
     
-    def _book_basic(self, domain: str, fuzzy_ratio: int = 80, **query) -> dict:
+    def _book_basic(self, domain: str, fuzzy_ratio: int = 80, **query) -> str:
         primary_key = PRIMARY_KEYS[domain]["primary_key"]
         other_keys = PRIMARY_KEYS[domain]["other_keys"]
         found = False
@@ -251,7 +251,7 @@ class Multiwoz24Environment(BaseEnvironment):
             people: Optional[str] = None,
             day: Optional[str] = None,
             time: Optional[str] = None,
-        ) -> dict:
+        ) -> str:
         return self._book_basic(
             domain = "restaurant",
             name = name,
@@ -266,7 +266,7 @@ class Multiwoz24Environment(BaseEnvironment):
             people: Optional[str] = None,
             day: Optional[str] = None,
             stay: Optional[str] = None,
-        ) -> dict:
+        ) -> str:
         return self._book_basic(
             domain = "hotel",
             name = name,
@@ -279,7 +279,7 @@ class Multiwoz24Environment(BaseEnvironment):
             self,
             trainID: Optional[str] = None,
             people: Optional[str] = None,
-        ) -> dict:
+        ) -> str:
         return self._book_basic(
             domain = "train",
             trainID = trainID,
@@ -292,7 +292,7 @@ class Multiwoz24Environment(BaseEnvironment):
             destination: Optional[str] = None,
             arriveBy: Optional[str] = None,
             leaveAt: Optional[str] = None,
-        ) -> dict:
+        ) -> str:
         booking_result = self._book_basic(
             domain = "taxi",
             departure = departure,

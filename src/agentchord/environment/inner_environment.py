@@ -1,3 +1,5 @@
+import json
+
 from .base_environment import BaseEnvironment
 
 TERMINATE_DESCRIPTION = {
@@ -27,5 +29,5 @@ class InnerEnvironment(BaseEnvironment):
         super().__init__(initial_metadata)
         self.register_tool(self.TERMINATE, TERMINATE_DESCRIPTION, self._terminate)
 
-    def _terminate(self, output: str, note: str) -> dict:
-        return {"output": output, "note": note}
+    def _terminate(self, output: str, note: str) -> str:
+        return json.dumps({"output": output, "note": note})

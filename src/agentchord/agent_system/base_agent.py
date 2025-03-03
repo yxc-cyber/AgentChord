@@ -44,7 +44,9 @@ class BaseAgent(BaseAgentSystem):
         previous_note = meta_data.note
         previous_tool_usage = meta_data.tool
         meta_data.input = ""
+        meta_data.note = ""
         meta_data.tool = list()
+        meta_data.output = ""
         self.messages.append({
             "role": "user",
             "content": INPUT_WITH_NOTE.format(
@@ -53,7 +55,8 @@ class BaseAgent(BaseAgentSystem):
             )
         })
         terminate = False
-        while not terminate:
+        loop_counter = 0
+        while not terminate and loop_counter < self.maximum_loops:
             self.logger.debug(f"Message history: {self.messages}")
             output_message = self.completion(self.messages)
             self.logger.debug(f"New message: {output_message.json()}")
@@ -64,6 +67,7 @@ class BaseAgent(BaseAgentSystem):
                 tool_arguments = json.loads(output_message.tool_calls[0].function.arguments)
                 if tool_name == self.inner_environment.TERMINATE:
                     tool_result = self.inner_environment.apply_tool(tool_name, tool_arguments)
+                    tool_result = json.loads(tool_result)
                     meta_data.output = tool_result["output"]
                     meta_data.note = tool_result["note"]
                     terminate = True
@@ -82,6 +86,7 @@ class BaseAgent(BaseAgentSystem):
                     output = output_message.content or EMPTY_PLACEHOLDER
                 )
                 terminate = True
+            loop_counter += 1
         self.logger.debug(f"Returning {meta_data}")
         return meta_data
     

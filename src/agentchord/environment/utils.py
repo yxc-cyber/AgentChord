@@ -1,0 +1,2 @@
+RESULT_TOOL_NAME_ERROR = {"message": "No such a tool in the environment. Please check the tool name."}
+RESULT_TOOL_ARGS_ERROR = lambda exception: {"message": f"Error in applying the tool. Please check the arguments. Error message: {exception}."}
