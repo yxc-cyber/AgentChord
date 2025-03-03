@@ -1,7 +1,7 @@
 import json
 import os
 import random
-from typing import Iterator, Type, Union
+from typing import Iterator, Optional, Tuple, Type
 
 from fuzzywuzzy import fuzz
 
@@ -80,11 +80,16 @@ class Multiwoz24Environment(BaseEnvironment):
     database = database
     dialogues = processed_dialogues
     domains_indices = domains_indices
+    evaluation_record = MultiWOZ24MetaData()
 
     @classmethod
     def iterate_test_cases(cls, mode: str) -> Iterator[Type["Multiwoz24Environment"]]:
         for dialogue_idx in cls.domains_indices[mode]:
             yield cls(mode=mode, dialogue_idx=dialogue_idx)
+
+    @classmethod
+    def evaluate_test_cases(cls) -> MultiWOZ24MetaData:
+        return cls.evaluation_record
 
     def __init__(self, mode: str, dialogue_idx: str, turn_idx: int = 0):
         super().__init__()
@@ -116,6 +121,16 @@ class Multiwoz24Environment(BaseEnvironment):
         for turn_idx in range(len(self.dialogues[self.mode][self.dialogue_idx]["dialogue"])-1):
             yield self.__class__(self.mode, self.dialogue_idx, turn_idx)
 
+    def evaluate(self, metadata: MultiWOZ24MetaData) -> MultiWOZ24MetaData:
+        dialogue_state = metadata.dialogue_state
+        system_response = metadata.system_response
+        jga, slot_recall, slot_precision = self.compute_dst(dialogue_state)
+        # Todo
+
+    def compute_dst(self, dialogue_state: dict) -> Tuple[float, float, float]:
+        true_positive, false_negative, false_positive = 0, 0, 0
+        # Todo
+
     def _query_basic(self, domain: str, max_retrieval: int = 10, fuzzy_ratio: int = 80, **query) -> dict:
         valid_items = []
         for database_item in database[domain]:
@@ -142,10 +157,10 @@ class Multiwoz24Environment(BaseEnvironment):
     
     def _query_restaurant(
             self,
-            area: Union[str, None] = None,
-            pricerange: Union[str, None] = None,
-            food: Union[str, None] = None,
-            name: Union[str, None] = None,
+            area: Optional[str] = None,
+            pricerange: Optional[str] = None,
+            food: Optional[str] = None,
+            name: Optional[str] = None,
         ) -> dict:
         return self._query_basic(
             domain = "restaurant",
@@ -157,13 +172,13 @@ class Multiwoz24Environment(BaseEnvironment):
 
     def _query_hotel(
             self,
-            area: Union[str, None] = None,
-            internet: Union[str, None] = None,
-            name: Union[str, None] = None,
-            parking: Union[str, None] = None,
-            pricerange: Union[str, None] = None,
-            stars: Union[str, None] = None,
-            type: Union[str, None] = None,
+            area: Optional[str] = None,
+            internet: Optional[str] = None,
+            name: Optional[str] = None,
+            parking: Optional[str] = None,
+            pricerange: Optional[str] = None,
+            stars: Optional[str] = None,
+            type: Optional[str] = None,
         ) -> dict:
         return self._query_basic(
             domain = "hotel",
@@ -178,9 +193,9 @@ class Multiwoz24Environment(BaseEnvironment):
     
     def _query_attraction(
             self,
-            area: Union[str, None] = None,
-            name: Union[str, None] = None,
-            type: Union[str, None] = None,
+            area: Optional[str] = None,
+            name: Optional[str] = None,
+            type: Optional[str] = None,
         ) -> dict:
         return self._query_basic(
             domain = "attraction",
@@ -191,12 +206,12 @@ class Multiwoz24Environment(BaseEnvironment):
     
     def _query_train(
             self,
-            day: Union[str, None] = None,
-            departure: Union[str, None] = None,
-            destination: Union[str, None] = None,
-            leaveAt: Union[str, None] = None,
-            arriveBy: Union[str, None] = None,
-            trainID: Union[str, None] = None,
+            day: Optional[str] = None,
+            departure: Optional[str] = None,
+            destination: Optional[str] = None,
+            leaveAt: Optional[str] = None,
+            arriveBy: Optional[str] = None,
+            trainID: Optional[str] = None,
         ) -> dict:
         return self._query_basic(
             domain = "train",
@@ -232,10 +247,10 @@ class Multiwoz24Environment(BaseEnvironment):
 
     def _book_restaurant(
             self,
-            name: Union[str, None] = None,
-            people: Union[str, None] = None,
-            day: Union[str, None] = None,
-            time: Union[str, None] = None,
+            name: Optional[str] = None,
+            people: Optional[str] = None,
+            day: Optional[str] = None,
+            time: Optional[str] = None,
         ) -> dict:
         return self._book_basic(
             domain = "restaurant",
@@ -247,10 +262,10 @@ class Multiwoz24Environment(BaseEnvironment):
     
     def _book_hotel(
             self,
-            name: Union[str, None] = None,
-            people: Union[str, None] = None,
-            day: Union[str, None] = None,
-            stay: Union[str, None] = None,
+            name: Optional[str] = None,
+            people: Optional[str] = None,
+            day: Optional[str] = None,
+            stay: Optional[str] = None,
         ) -> dict:
         return self._book_basic(
             domain = "hotel",
@@ -262,8 +277,8 @@ class Multiwoz24Environment(BaseEnvironment):
     
     def _book_train(
             self,
-            trainID: Union[str, None] = None,
-            people: Union[str, None] = None,
+            trainID: Optional[str] = None,
+            people: Optional[str] = None,
         ) -> dict:
         return self._book_basic(
             domain = "train",
@@ -273,10 +288,10 @@ class Multiwoz24Environment(BaseEnvironment):
     
     def _book_taxi(
             self,
-            departure: Union[str, None] = None,
-            destination: Union[str, None] = None,
-            arriveBy: Union[str, None] = None,
-            leaveAt: Union[str, None] = None,
+            departure: Optional[str] = None,
+            destination: Optional[str] = None,
+            arriveBy: Optional[str] = None,
+            leaveAt: Optional[str] = None,
         ) -> dict:
         booking_result = self._book_basic(
             domain = "taxi",

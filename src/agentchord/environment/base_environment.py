@@ -1,14 +1,20 @@
-from typing import Callable, Union
+from typing import Callable, Optional
 
 from ..metadata import BaseMetaData
 
 
 class BaseEnvironment:
+    evaluation_record = BaseMetaData()
+
     @classmethod
     def iterate_test_cases(cls):
         pass
 
-    def __init__(self, initial_metadata: Union[BaseMetaData, None] = None):
+    @classmethod
+    def evaluate_test_cases(cls):
+        pass
+
+    def __init__(self, initial_metadata: Optional[BaseMetaData] = None):
         self.tool_handlers = dict()
         self.tool_descriptions = dict()
         self.initial_metadata = initial_metadata if initial_metadata is not None else BaseMetaData()

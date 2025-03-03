@@ -5,5 +5,6 @@ from dataclasses import dataclass, field
 class BaseMetaData:
     input: str = ""
     note: str = ""
-    tool: dict = field(default_factory=list)
+    tool: list = field(default_factory=list)
     output: str = ""
+    sample_number: int = 0
