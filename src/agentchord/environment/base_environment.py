@@ -1,3 +1,4 @@
+import json
 from typing import Callable, Optional
 
 from ..metadata import BaseMetaData
@@ -38,11 +39,11 @@ class BaseEnvironment:
     
     def apply_tool(self, tool_name: str, tool_arguments: dict) -> str:
         if tool_name not in self.tool_handlers:
-            return RESULT_TOOL_NAME_ERROR
+            return json.dumps(RESULT_TOOL_NAME_ERROR)
         try:
             return self.tool_handlers[tool_name](**tool_arguments)
         except Exception as e:
-            return RESULT_TOOL_ARGS_ERROR(e)
+            return json.dumps(RESULT_TOOL_ARGS_ERROR(e))
     
     def set_done(self):
         self.done = True

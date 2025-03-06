@@ -67,19 +67,19 @@ class BaseAgent(BaseAgentSystem):
                 tool_arguments = json.loads(output_message.tool_calls[0].function.arguments)
                 if tool_name == self.inner_environment.TERMINATE:
                     tool_result = self.inner_environment.apply_tool(tool_name, tool_arguments)
-                    tool_result = json.loads(tool_result)
-                    meta_data.output = tool_result["output"]
-                    meta_data.note = tool_result["note"]
+                    tool_result_dict = json.loads(tool_result)
+                    meta_data.output = tool_result_dict["output"]
+                    meta_data.note = tool_result_dict["note"]
                     terminate = True
                 else:
                     tool_result = self.environment.apply_tool(tool_name, tool_arguments)
-                    self.messages.append({
-                        "role":"tool",
-                        "tool_call_id":tool_call_id,
-                        "name": tool_name,
-                        "content":tool_result
-                    })
                     meta_data.tool.append({"tool_name": tool_name, "tool_arguments": tool_arguments, "tool_result": tool_result})
+                self.messages.append({
+                    "role":"tool",
+                    "tool_call_id":tool_call_id,
+                    "name": tool_name,
+                    "content":tool_result
+                })
             else:
                 meta_data.output = ""
                 meta_data.note = NOTE_NO_ACTION.format(

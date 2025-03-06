@@ -8,13 +8,16 @@ TERMINATE_DESCRIPTION = {
         "name": "terminate",
         "description": "Terminate the current agent turn and pass information to the next agent.",
         "parameters": {
-            "output": {
-                "type": "string",
-                "description": "The output of the current agent turn."
-            },
-            "note": {
-                "type": "string",
-                "description": "A note left for the next agent."
+            "type": "object",
+            "properties": {
+                "output": {
+                    "type": "string",
+                    "description": "The output of the current agent turn."
+                },
+                "note": {
+                    "type": "string",
+                    "description": "A note left for the next agent."
+                },
             },
             "additionalProperties": False,
             "required": ["output", "note"]
