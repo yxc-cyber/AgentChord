@@ -25,7 +25,9 @@ from .utils import (
     ENV_PATH,
     FUZZY_KEYS,
     PRIMARY_KEYS,
+    delexicalize,
     generate_reference_number,
+    prepareSlotValuesIndependent,
     time_str_to_minutes,
 )
 
@@ -55,6 +57,9 @@ for domain in CLEAN_DOMAINS:
                         number_pool.add(phone)
                         database[domain].append({"type": f"{color} {type}", "phone": phone})
 
+# Prepare the delexicalization map
+delexicalization_map = prepareSlotValuesIndependent(database)
+
 # Load the dialogues
 dialogues = dict()
 with open(os.path.join(ENV_PATH, "MultiWOZ2.4/data/mwz2.4", "test_dials.json"), "r") as f:
@@ -75,12 +80,25 @@ for mode, data in dialogues.items():
                     processed_dialogues[mode] = dict()
                 processed_dialogues[mode][dialogue_content["dialogue_idx"]] = dialogue_content
 
+# Load the goals
+goals = dict()
+with open(os.path.join(ENV_PATH, "goals.json"), "r") as f:
+    goals_raw = json.load(f)
+for dialogue_idx, dialogue_content in goals_raw.items():
+    goals[dialogue_idx.upper()+".json"] = dialogue_content
+
+# Load the booked domains
+booked_domains = dict()
+with open(os.path.join(ENV_PATH, "booked_domains.json"), "r") as f:
+    booked_domains_raw = json.load(f)
+for dialogue_idx, dialogue_content in booked_domains_raw.items():
+    booked_domains[dialogue_idx.upper()+".json"] = dialogue_content
 
 class Multiwoz24Environment(BaseEnvironment):
     database = database
     dialogues = processed_dialogues
     domains_indices = domains_indices
-    evaluation_record = MultiWOZ24MetaData()
+    evaluation_record = dict()
 
     @classmethod
     def iterate_test_cases(cls, mode: str) -> Iterator[Type["Multiwoz24Environment"]]:
@@ -89,13 +107,15 @@ class Multiwoz24Environment(BaseEnvironment):
 
     @classmethod
     def evaluate_test_cases(cls) -> MultiWOZ24MetaData:
-        return cls.evaluation_record
+        # Todo: aggregate the evaluation results and clean the src/agentchord/environment/multiwoz_24_environment/goals.json
+        pass
 
-    def __init__(self, mode: str, dialogue_idx: str, turn_idx: int = 0):
+    def __init__(self, mode: str, dialogue_idx: str, turn_idx: int = 0, fuzzy_ratio: int = 80):
         super().__init__()
         self.mode = mode
         self.dialogue_idx = dialogue_idx
         self.turn_idx = turn_idx
+        self.fuzzy_ratio = fuzzy_ratio
         self.register_tool(QUERY_HOTEL_DESCRIPTION["function"]["name"], QUERY_HOTEL_DESCRIPTION, self._query_hotel)
         self.register_tool(QUERY_RESTAURANT_DESCRIPTION["function"]["name"], QUERY_RESTAURANT_DESCRIPTION, self._query_restaurant)
         self.register_tool(QUERY_ATTRACTION_DESCRIPTION["function"]["name"], QUERY_ATTRACTION_DESCRIPTION, self._query_attraction)
@@ -122,16 +142,145 @@ class Multiwoz24Environment(BaseEnvironment):
             yield self.__class__(self.mode, self.dialogue_idx, turn_idx)
 
     def evaluate(self, metadata: MultiWOZ24MetaData) -> MultiWOZ24MetaData:
+        self.init_evaluation_record()
         dialogue_state = metadata.dialogue_state
         system_response = metadata.system_response
-        jga, slot_recall, slot_precision = self.compute_dst(dialogue_state)
-        # Todo
+        tool_usage = metadata.tool
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].dialogue_state = dialogue_state
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].system_response = system_response
+        # Compute the dialogue state accuracy
+        matched_turns, true_positive, false_positive, false_negative = self.compute_dst(dialogue_state)
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].matched_turns += matched_turns
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].true_positive += true_positive
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].false_positive += false_positive
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].false_negative += false_negative
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].total_turns += 1
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].joint_goal_accuracy = self.evaluation_record[self.dialogue_idx][self.turn_idx].matched_turns / (self.evaluation_record[self.dialogue_idx][self.turn_idx].total_turns + 1e-10)
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].slot_recall = self.evaluation_record[self.dialogue_idx][self.turn_idx].true_positive / (self.evaluation_record[self.dialogue_idx][self.turn_idx].true_positive + self.evaluation_record[self.dialogue_idx][self.turn_idx].false_negative + 1e-10)
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].slot_precision = self.evaluation_record[self.dialogue_idx][self.turn_idx].true_positive / (self.evaluation_record[self.dialogue_idx][self.turn_idx].true_positive + self.evaluation_record[self.dialogue_idx][self.turn_idx].false_positive + 1e-10)
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].slot_f1 = 2 * self.evaluation_record[self.dialogue_idx][self.turn_idx].slot_precision * self.evaluation_record[self.dialogue_idx][self.turn_idx].slot_recall / (self.evaluation_record[self.dialogue_idx][self.turn_idx].slot_precision + self.evaluation_record[self.dialogue_idx][self.turn_idx].slot_recall + 1e-10)
+        # Compute the system response accuracy
+        delexicalized_system_response = delexicalize(system_response, delexicalization_map, tool_usage)
+        goal = goals[self.dialogue_idx]
+        inform, success = self.compute_success(delexicalized_system_response, tool_usage, goal)
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].delixicalized_system_response = delexicalized_system_response
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].inform = inform
+        self.evaluation_record[self.dialogue_idx][self.turn_idx].success = success
+        return self.evaluation_record[self.dialogue_idx][self.turn_idx]
+        
+    def init_evaluation_record(self):
+        if self.dialogue_idx not in self.evaluation_record:
+            self.evaluation_record[self.dialogue_idx] = dict()
+        self.evaluation_record[self.dialogue_idx][self.turn_idx] = MultiWOZ24MetaData()
 
-    def compute_dst(self, dialogue_state: dict) -> Tuple[float, float, float]:
-        true_positive, false_negative, false_positive = 0, 0, 0
-        # Todo
+    # The following function is adapted from uiuc-conversational-ai-lab/multiwoz-helper:
+    # https://github.com/uiuc-conversational-ai-lab/multiwoz-helper/blob/main/mwzeval/metrics.py#L265
+    def compute_dst(self, dialogue_state: dict) -> Tuple[float, float, float, float]:
+        true_positive, false_negative, false_positive = 0.0, 0.0, 0.0
+        ground_truth_raw = self.dialogues[self.mode][self.dialogue_idx]["dialogue"][self.turn_idx]["belief_state"]
+        ground_truth_dialogue_state = dict()
+        for ground_truth in ground_truth_raw:
+            ground_truth_dialogue_state[ground_truth["slots"][0][0]] = ground_truth["slots"][0][1]
+        for dialogue_state_slot, dialogue_state_value in dialogue_state.items():
+            if dialogue_state_slot in ground_truth_dialogue_state:
+                domain, slot = dialogue_state_slot.split("-")
+                if domain in FUZZY_KEYS and slot in FUZZY_KEYS[domain]:
+                    if (fuzz.partial_ratio(dialogue_state_value, ground_truth_dialogue_state[dialogue_state_slot]) >= self.fuzzy_ratio) or (fuzz.partial_ratio(ground_truth_dialogue_state[dialogue_state_slot], dialogue_state_value) >= self.fuzzy_ratio):
+                        true_positive += 1
+                    else:
+                        false_positive += 1
+                else:
+                    if dialogue_state_value == ground_truth_dialogue_state[dialogue_state_slot]:
+                        true_positive += 1
+                    else:
+                        false_positive += 1
+            else:
+                false_positive += 1
+        for ground_truth_slot in ground_truth_dialogue_state.keys():
+            if ground_truth_slot not in dialogue_state:
+                false_negative += 1
+        matched_turns = float((false_positive + false_negative) == 0)
+        return matched_turns, true_positive, false_positive, false_negative
+    
+    # The following function is adapted from uiuc-conversational-ai-lab/multiwoz-helper:
+    # https://github.com/uiuc-conversational-ai-lab/multiwoz-helper/blob/main/mwzeval/metrics.py#L160
+    def compute_success(self, system_response: str, tool_usage: dict, goal: dict) -> Tuple[dict, dict]:
+        requestable_slots_in_goal = {domain : set(goal[domain]["requestable"]) for domain in goal}
+        offered_venues = {domain : list() for domain in goal}
+        provided_requestable_slots = {domain : set() for domain in goal}
+        booked_domain = booked_domains[self.dialogue_idx][self.turn_idx]
+        # Find offered venues and provided requestable slots in system utterances
+        for current_domain in goal:
+            # In order to calculate the INFORM metric, we look at the NAME and TRAINID spans because these are the only
+            # ones that identify a venue, search for the NAME or TRAINID in the current system response       
+            if ("name" in system_response and current_domain in ["restaurant", "hotel", "attraction"]) or ("train_id" in system_response and current_domain == "train"):
+                # The INFORM rate metric takes into account just the *last* mention about the particular venue into account
+                for tool_call in tool_usage:
+                    if current_domain in tool_call["tool_name"] and "query" in tool_call["tool_name"]:
+                        tool_result = json.loads(tool_call["tool_result"])
+                        if "result" in tool_result and tool_result["result"]:
+                            offered_venues[current_domain] = tool_result["result"]
+                            if current_domain == "train":
+                                offered_venues[current_domain] = [venue["trainID"] for venue in offered_venues[current_domain]]
+                            else:
+                                offered_venues[current_domain] = [venue["name"] for venue in offered_venues[current_domain]]
+            # In order to calculate the SUCCESS metric, we look at the provided requestable slots in the system utterances
+            for requestable_slot in requestable_slots_in_goal[current_domain]:
+                if requestable_slot.lower() in system_response:
+                    # We do not want to add the REFERENCE to the set of mentioned slots if it could not have been known. But the MultiWOZ
+                    # dataset does not provide any information about booking availability. Thus we need to rely on the ground-truth anotations. 
+                    # On the other hand, if the system provides a reference code in the turn where it is not supposed to, the requestable slot 
+                    # is not added. So even if the evaluated system does not use the ground-truth booking information during evaluation and 
+                    # it always suceeds if it has any database results, it does not affect these metrics. 
+                    if requestable_slot == "REFERENCE":
+                        if current_domain in booked_domain:
+                            provided_requestable_slots[current_domain].add("REFERENCE")               
+                    else: 
+                        provided_requestable_slots[current_domain].add(requestable_slot)
+        for domain in goal:
+            # If the crowd worker was instructed to mention the name, the match is being done automatically
+            if 'name' in goal[domain]["informable"]:
+                offered_venues[domain] = "MATCHED"
+            # 'taxi', 'police', 'hospital' are special domains - do not have any database and entity does not need to be provided
+            if domain in ["taxi", "police", "hospital"]:
+                offered_venues[domain] = "MATCHED"
+            # if TRAINID was not requested and train was *not* found, we match the dialog goals, but if TRAINID was not requested
+            # and train *was* found we want to keep it in order to check if it is a right train
+            if domain == "train" and not offered_venues["train"] and "TRAINID" not in goal["train"]["requestable"]:
+                offered_venues[domain] = "MATCHED"
+        # Calculate the INFORM rate of this dialog, either +1 or 0
+        match = dict()
+        for domain in goal:
+            match_domain = False
+            if offered_venues[domain] == "MATCHED":
+                match_domain = True
+            elif domain in ["restaurant", "hotel", "attraction", "train"] and len(offered_venues[domain]) > 0:
+                # Get venues from the database that match all the information provided by the user
+                goal_venues = self._query_basic(domain, **goal[domain]["informable"])
+                if domain == "train":
+                    goal_venues = [venue["trainID"] for venue in goal_venues]
+                else:
+                    goal_venues = [venue["name"] for venue in goal_venues]
+                # Compare the venues that could be offered by the system and the venues that match the information
+                # in dialg goals, these two sets do not have to match exactly and there are two ways to compare them:
+                # Venues are matching if the goal venues are a super set of the possibly offered venues.
+                if set(offered_venues[domain]).issubset(set(goal_venues)):
+                    match_domain = True
+            match[domain] = float(match_domain)
+        # The inform rate +1 if the goal venues are matched for all domains, otherwise 0 
+        match["total"] = float(sum(match.values()) == len(match.keys()))
+        # Calculate the SUCCESS rate, either +1 or 0
+        success = dict()
+        if match["total"]:
+            for domain in goal:
+                # If values in sentences are super set of requestables
+                provided_and_wanted_slots = provided_requestable_slots[domain] & requestable_slots_in_goal[domain]
+                domain_success = len(provided_and_wanted_slots) == len(requestable_slots_in_goal[domain])
+                success[domain] = domain_success   
+            success["total"] = float(sum(success.values()) >= len(success.keys()))
+        return match, success
 
-    def _query_basic(self, domain: str, max_retrieval: int = 10, fuzzy_ratio: int = 80, **query) -> str:
+    def _query_basic(self, domain: str, max_retrieval: int = 10, **query) -> str:
         valid_items = []
         for database_item in database[domain]:
             valid = True
@@ -139,7 +288,7 @@ class Multiwoz24Environment(BaseEnvironment):
                 database_value = database_item.get(query_key, None)
                 if database_value and query_value:
                     if (domain not in DOMAIN_FINITE_KEYS) or (query_key not in DOMAIN_FINITE_KEYS[domain]) or (query_value in DOMAIN_FINITE_KEYS[domain][query_key]):
-                        if query_key in FUZZY_KEYS[domain] and (fuzz.partial_ratio(database_value, query_value) < fuzzy_ratio or fuzz.partial_ratio(query_value, database_value) < fuzzy_ratio):
+                        if query_key in FUZZY_KEYS[domain] and (fuzz.partial_ratio(database_value, query_value) < self.fuzzy_ratio or fuzz.partial_ratio(query_value, database_value) < self.fuzzy_ratio):
                             valid = False
                         if query_key == ARRIVAL_TIME_KEY and time_str_to_minutes(database_value) > time_str_to_minutes(query_value):
                             valid = False
@@ -223,7 +372,7 @@ class Multiwoz24Environment(BaseEnvironment):
             trainID = trainID,
         )
     
-    def _book_basic(self, domain: str, fuzzy_ratio: int = 80, **query) -> str:
+    def _book_basic(self, domain: str, **query) -> str:
         primary_key = PRIMARY_KEYS[domain]["primary_key"]
         other_keys = PRIMARY_KEYS[domain]["other_keys"]
         found = False
@@ -233,7 +382,7 @@ class Multiwoz24Environment(BaseEnvironment):
             for database_item in database[domain]:
                 database_value = database_item.get(primary_key, None)
                 query_value = query[primary_key]
-                if (primary_key in FUZZY_KEYS[domain]) and (fuzz.partial_ratio(database_value, query_value) >= fuzzy_ratio) or (fuzz.partial_ratio(query_value, database_value) >= fuzzy_ratio):
+                if (primary_key in FUZZY_KEYS[domain]) and (fuzz.partial_ratio(database_value, query_value) >= self.fuzzy_ratio) or (fuzz.partial_ratio(query_value, database_value) >= self.fuzzy_ratio):
                     found = True
                 if primary_key not in FUZZY_KEYS[domain] and database_value == query_value:
                     found = True
@@ -305,5 +454,3 @@ class Multiwoz24Environment(BaseEnvironment):
             booking_result["result"]["phone"] = entity["phone"]
             booking_result["result"]["type"] = entity["type"]
         return booking_result
-    
-# Todo: Implement the evaluation function

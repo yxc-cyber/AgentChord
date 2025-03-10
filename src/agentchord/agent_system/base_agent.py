@@ -45,7 +45,7 @@ class BaseAgent(BaseAgentSystem):
         previous_tool_usage = meta_data.tool
         meta_data.input = ""
         meta_data.note = ""
-        meta_data.tool = list()
+        # meta_data.tool = list() # Keep the previous tool usage
         meta_data.output = ""
         self.messages.append({
             "role": "user",
