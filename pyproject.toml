@@ -9,6 +9,7 @@ dependencies = [
     "litellm>=1.59.8",
     "numpy>=2.2.3",
     "python-levenshtein>=0.26.1",
+    "sacremoses>=0.1.1",
 ]
 
 [project.scripts]
