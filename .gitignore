@@ -5,7 +5,7 @@
 .env
 logs/
 !logs/app.log
-**/scratch.py
+**/scratch*
 
 # Large files
 src/agentchord/environment/multiwoz_24_environment/MultiWOZ2.4/
