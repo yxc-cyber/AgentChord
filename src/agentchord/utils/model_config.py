@@ -14,8 +14,6 @@ class ModelConfig:
     # LiteLLM configuration
     client_model: Optional[str] = None
     # Optional OpenAI params: see https://platform.openai.com/docs/api-reference/chat/create
-    functions: Optional[List] = None
-    function_call: Optional[str] = None
     timeout: Optional[Union[float, int]] = None
     temperature: Optional[float] = None
     top_p: Optional[float] = None
@@ -37,7 +35,6 @@ class ModelConfig:
     parallel_tool_calls: Optional[bool] = None
     logprobs: Optional[bool] = None
     top_logprobs: Optional[int] = None
-    reasoning_effort: Optional[Literal["low", "medium", "high"]] = None
     # set api_base, api_version, api_key
     base_url: Optional[str] = None
     api_version: Optional[str] = None
@@ -51,8 +48,6 @@ class ModelConfig:
     def get_client_configuration(self) -> dict:
         return {
             "model": self.client_model,
-            "functions": self.functions,
-            "function_call": self.function_call,
             "timeout": self.timeout,
             "temperature": self.temperature,
             "top_p": self.top_p,
@@ -73,7 +68,6 @@ class ModelConfig:
             "parallel_tool_calls": self.parallel_tool_calls,
             "logprobs": self.logprobs,
             "top_logprobs": self.top_logprobs,
-            "reasoning_effort": self.reasoning_effort,
             "base_url": self.base_url,
             "api_version": self.api_version,
             "api_key": self.api_key,
