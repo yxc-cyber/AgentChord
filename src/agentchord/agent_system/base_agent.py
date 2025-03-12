@@ -1,11 +1,11 @@
 import json
 from typing import Any, List
 
-import litellm
 from litellm import Message
 
 from ..environment import BaseEnvironment
 from ..metadata import BaseMetaData
+from ..model import ModelFactory
 from ..utils import EMPTY_PLACEHOLDER, INPUT_WITH_NOTE, NOTE_NO_ACTION, ModelConfig
 from .base_agent_system import BaseAgentSystem
 
@@ -19,6 +19,7 @@ class BaseAgent(BaseAgentSystem):
         self.subsystem_sequence = None
         self.prompt = prompt
         self.model_config = model_config
+        self.model = ModelFactory(self.model_config).create_model()
         self.messages = list()
         self.messages_initialization()
 
@@ -27,15 +28,10 @@ class BaseAgent(BaseAgentSystem):
         return meta_data
     
     def completion(self, messages: List[dict]) -> Message:
-        if self.model_config.client_model:
-            output_message = litellm.completion(
-                messages=messages,
-                tools=self.tool_descriptions,
-                model=self.model_config.client_model
-            ).choices[0].message
-        else:
-            # Todo: adapt local models
-            raise NotImplementedError
+        output_message = self.model.completion(
+            messages=messages,
+            tools=self.tool_descriptions
+        ).choices[0].message
         return output_message
     
     def execution(self, meta_data: BaseMetaData) -> BaseMetaData:

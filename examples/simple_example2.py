@@ -34,5 +34,5 @@ print("System pipeline:")
 print(countdown_system.get_pipeline_description())
 
 print("Run system:")
-final_result = countdown_system.run(debug=False, log_name="simple_example2.log")
+final_result = countdown_system.run(debug=False, log_name="simple_example2.log", loop=True)
 print(final_result)
