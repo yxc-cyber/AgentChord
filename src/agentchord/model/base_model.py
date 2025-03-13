@@ -2,7 +2,7 @@ from typing import List, Optional, Union
 
 from litellm import CustomStreamWrapper, Message, ModelResponse, completion
 
-from ..utils import ModelConfig
+from .model_config import ModelConfig
 
 
 class BaseModel:

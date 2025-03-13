@@ -5,6 +5,7 @@ from .base_metadata import BaseMetaData
 
 @dataclass
 class MultiWOZ24MetaData(BaseMetaData):
+    grounding_utterance: str = ""
     dialogue_state: dict = field(default_factory=dict)
     system_response: str = ""
     delixicalized_system_response: str = ""

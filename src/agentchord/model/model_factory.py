@@ -1,5 +1,5 @@
-from ..utils import ModelConfig
 from .base_model import BaseModel
+from .model_config import ModelConfig
 
 
 class ModelFactory:

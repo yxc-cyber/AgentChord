@@ -5,22 +5,18 @@ from litellm import Message
 
 from ..environment import BaseEnvironment
 from ..metadata import BaseMetaData
-from ..model import ModelFactory
-from ..utils import EMPTY_PLACEHOLDER, INPUT_WITH_NOTE, NOTE_NO_ACTION, ModelConfig
+from ..model import ModelConfig, ModelFactory
+from ..utils import EMPTY_PLACEHOLDER, INPUT_WITH_NOTE, NOTE_NO_ACTION
 from .base_agent_system import BaseAgentSystem
 
 
 class BaseAgent(BaseAgentSystem):
     def __init__(self, system_name: str, environment: BaseEnvironment, prompt: str, model_config: ModelConfig, log_name: str = ""):
-        super().__init__(system_name=system_name, environment=environment, log_name=log_name)
-        self.subsystems = None
-        self.on_start_actions = None
-        self.on_completion_actions = None
-        self.subsystem_sequence = None
         self.prompt = prompt
         self.model_config = model_config
         self.model = ModelFactory(self.model_config).create_model()
         self.messages = list()
+        super().__init__(system_name=system_name, environment=environment, log_name=log_name)
         self.messages_initialization()
 
     def execution_loop(self, meta_data: BaseMetaData, loop: bool = False) -> BaseMetaData:
@@ -106,7 +102,7 @@ class BaseAgent(BaseAgentSystem):
     def messages_initialization(self):
         self.messages = [{"role": "system", "content": self.prompt}]
 
-    def get_pipeline_description_list(self) -> list:
+    def _get_pipeline_description_list(self) -> list:
         return list()
     
     def get_pipeline_description(self) -> str:

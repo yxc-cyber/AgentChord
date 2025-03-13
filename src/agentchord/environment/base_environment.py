@@ -1,3 +1,4 @@
+import copy
 import json
 from typing import Callable, Optional
 
@@ -29,7 +30,7 @@ class BaseEnvironment:
         self.initial_metadata = initial_metadata
     
     def get_initial_metadata(self) -> BaseMetaData:
-        return self.initial_metadata
+        return copy.deepcopy(self.initial_metadata)
     
     def register_tool(self, tool_name: str, tool_description: dict, tool_handler: Callable):
         if tool_name in self.tool_handlers or tool_name in self.tool_descriptions:

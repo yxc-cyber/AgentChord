@@ -2,7 +2,7 @@ from agentchord import BaseAgent, BaseEnvironment, BaseMetaData, ModelConfig
 
 prompt = "You are a helpful agent that can repeat what the user says."
 model_config = ModelConfig(client_config={
-    "model": "openai/gpt-4o"
+    "model": "openai/gpt-4o-mini",
 })
 inital_setup = BaseMetaData(input="Nice to meet you!")
 base_environment = BaseEnvironment(initial_metadata=inital_setup)

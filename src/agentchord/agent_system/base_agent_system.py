@@ -146,7 +146,7 @@ class BaseAgentSystem:
         if log_name:
             self.set_log_redirection(self.log_name)
 
-    def get_pipeline_description_list(self) -> list:
+    def _get_pipeline_description_list(self) -> list:
         description_list = list()
         for subsystem_name in self.subsystem_sequence:
             subsystem = self.subsystems[subsystem_name]
@@ -154,7 +154,7 @@ class BaseAgentSystem:
                 on_start_action = self.on_start_actions[subsystem_name]
                 description_list.append(f"On Start Action: {on_start_action.action_name} ({on_start_action.__class__})")
             description_list.append(f"Agent System: {subsystem_name} ({subsystem.__class__})")
-            description_list.extend(subsystem.get_pipeline_description_list())
+            description_list.extend(subsystem._get_pipeline_description_list())
             if subsystem_name in self.on_completion_actions:
                 on_completion_action = self.on_completion_actions[subsystem_name]
                 description_list.append(f"On Completion Action: {on_completion_action.action_name} ({on_completion_action.__class__})")
@@ -162,7 +162,7 @@ class BaseAgentSystem:
         return description_list
     
     def get_pipeline_description(self) -> str:
-        description_list = self.get_pipeline_description_list()
+        description_list = self._get_pipeline_description_list()
         result_list = [f"Agent System: {self.system_name} ({self.__class__})"] + description_list
         return "\n".join(result_list)
     

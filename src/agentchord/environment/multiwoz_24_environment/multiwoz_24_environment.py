@@ -7,6 +7,7 @@ from fuzzywuzzy import fuzz
 
 from ...metadata import MultiWOZ24MetaData
 from ..base_environment import BaseEnvironment
+from .normalization import normalize_data
 from .tool_descriptions import (
     BOOK_HOTEL_DESCRIPTION,
     BOOK_RESTAURANT_DESCRIPTION,
@@ -30,7 +31,6 @@ from .utils import (
     prepareSlotValuesIndependent,
     time_str_to_minutes,
 )
-from .normalization import normalize_data
 
 # Fix the random seed for reproducibility
 random.seed(0)
@@ -103,7 +103,7 @@ class Multiwoz24Environment(BaseEnvironment):
 
     @classmethod
     def iterate_test_cases(cls, mode: str) -> Iterator[Type["Multiwoz24Environment"]]:
-        for dialogue_idx in cls.domains_indices[mode]:
+        for dialogue_idx in cls.dialogues[mode]:
             yield cls(mode=mode, dialogue_idx=dialogue_idx)
 
     @classmethod
@@ -146,8 +146,10 @@ class Multiwoz24Environment(BaseEnvironment):
             slot_f1=slot_f1,
         )
 
-    def __init__(self, mode: str, dialogue_idx: str, turn_idx: int = 0, fuzzy_ratio: int = 80):
+    def __init__(self, mode: str = "test", dialogue_idx: str = "", turn_idx: int = 0, fuzzy_ratio: int = 80):
         super().__init__()
+        if not dialogue_idx:
+            dialogue_idx = list(self.dialogues[mode].keys())[0]
         self.mode = mode
         self.dialogue_idx = dialogue_idx
         self.turn_idx = turn_idx
@@ -162,7 +164,7 @@ class Multiwoz24Environment(BaseEnvironment):
         self.register_tool(BOOK_TAXI_DESCRIPTION["function"]["name"], BOOK_TAXI_DESCRIPTION, self._book_taxi)
         self.grounding_utterance = self.prepare_grounding_utterance()
         self.target_utterance = self.dialogues[self.mode][self.dialogue_idx]["dialogue"][self.turn_idx+1]["system_transcript"]
-        self.set_initial_metadata(MultiWOZ24MetaData(input=self.grounding_utterance))
+        self.set_initial_metadata(MultiWOZ24MetaData(input=self.grounding_utterance, grounding_utterance=self.grounding_utterance))
 
     def prepare_grounding_utterance(self) -> str:
         grounding_utterance = list()
