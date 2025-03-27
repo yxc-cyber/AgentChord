@@ -62,6 +62,14 @@ class Multiwoz24System(BaseAgentSystem):
 multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_system.log")
 print(multiwoz_24_system.get_pipeline_description())
 
-for dialogue_case in Multiwoz24Environment().iterate_test_cases(mode="test"):
-    for turn_case in dialogue_case.iterate_dialog_turns():
+for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_cases(mode="test")):
+    for turn_idx, turn_case in enumerate(dialogue_case.iterate_dialog_turns()):
         multiwoz_24_system.set_environment(environment=turn_case)
+        result = multiwoz_24_system.run()
+        evaluation_result = turn_case.evaluate(result)
+        if turn_idx >= 5:
+            break
+    if dialogue_idx >= 5:
+        break
+evaluation_result = Multiwoz24Environment.evaluate_test_cases(mode="test").to_json("./examples/multiwoz_24_evaluation.json")
+print(evaluation_result)
