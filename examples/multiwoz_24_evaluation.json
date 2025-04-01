@@ -1,0 +1,12 @@
+{
+    "inform": {
+        "taxi": 1.0,
+        "total": 1.0
+    },
+    "success": {
+        "attraction": true,
+        "total": 1.0
+    },
+    "total_turns": 4.0,
+    "false_negative": 13.0
+}

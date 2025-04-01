@@ -13,20 +13,22 @@ prompt_read_state = "You are a helpful agent that can repeat what the user says.
 prompt_generate_response = "You are a helpful agent that can generate a response to the user."
 
 class Multiwoz24System(BaseAgentSystem):
-    def __init__(self, system_name: str, environment: Multiwoz24Environment, maximum_loops: int = 50, log_name: str = ""):
+    def __init__(self, system_name: str, environment: Multiwoz24Environment, maximum_loops: int = 5, log_name: str = ""):
         super().__init__(system_name, environment, maximum_loops, log_name)
         StateAgent = BaseAgent(
             system_name="state_agent",
             environment=environment,
             prompt=prompt_read_state,
-            model_config=ModelConfig(client_model="openai/gpt-4o-mini"),
+            model_config=ModelConfig(client_model="openai/Llama3.1-70B-Instruct", temperature=0.0),
+            maximum_loops=maximum_loops,
             log_name=log_name
         )
         ResponseAgent = BaseAgent(
             system_name="response_agent",
             environment=environment,
             prompt=prompt_generate_response,
-            model_config=ModelConfig(client_model="openai/gpt-4o-mini"),
+            model_config=ModelConfig(client_model="openai/Llama3.1-70B-Instruct", temperature=0.0),
+            maximum_loops=maximum_loops,
             log_name=log_name
         )
 
@@ -67,9 +69,9 @@ for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_
         multiwoz_24_system.set_environment(environment=turn_case)
         result = multiwoz_24_system.run()
         evaluation_result = turn_case.evaluate(result)
-        if turn_idx >= 5:
+        if turn_idx > 2:
             break
-    if dialogue_idx >= 5:
+    if dialogue_idx > 2:
         break
 evaluation_result = Multiwoz24Environment.evaluate_test_cases(mode="test").to_json("./examples/multiwoz_24_evaluation.json")
 print(evaluation_result)

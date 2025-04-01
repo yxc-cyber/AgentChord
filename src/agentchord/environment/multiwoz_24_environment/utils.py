@@ -141,7 +141,7 @@ def delexicalize(system_response: str, delexicalization_map: dict, tool_usages: 
         if isinstance(tool_result, str):
             tool_result = json.loads(tool_result)
         tool_name = tool_usage["tool_name"]
-        if tool_result.get("result", None) and tool_result["result"].get("reference", None):
+        if tool_result.get("result", None) and isinstance(tool_result["result"], dict) and tool_result["result"].get("reference", None):
             domain = None
             for domain_candidate in CLEAN_DOMAINS:
                 if domain_candidate.lower() in tool_name:
@@ -161,7 +161,7 @@ def delexicalize(system_response: str, delexicalization_map: dict, tool_usages: 
             system_response = system_response.replace(" " + key + " ", " " + val + " ")
     # Delexicalize general numbers
     digitpat = re.compile(r"\d+")
-    processed_turn_response = re.sub(digitpat, "[value_count]", processed_turn_response)
+    system_response = re.sub(digitpat, "[value_count]", system_response)
     system_response = system_response.strip()
     return system_response
 

@@ -7,29 +7,46 @@ from functools import partial
 from sacremoses import MosesDetokenizer, MosesTokenizer
 
 
-def normalize_data(input_data):
-    """ In-place normalization of raw dictionary with input data. Normalize slot names, slot values, remove plurals and detokenize utterances. """
+def normalize_data(input_data, type):
+    """ Normalization of raw dictionary with input data. Normalize slot names, slot values, remove plurals and detokenize utterances. """
 
     mt, md = MosesTokenizer(lang='en'), MosesDetokenizer(lang='en')
     slot_name_re = re.compile(r'\[([\w\s\d]+)\](es|s|-s|-es|)')
     slot_name_normalizer = partial(slot_name_re.sub, lambda x: normalize_slot_name(x.group(1)))
 
-    for dialogue in input_data.values():
-        for turn in dialogue:
-            turn["response"] = slot_name_normalizer(turn["response"].lower())
-            turn["response"] = md.detokenize(mt.tokenize(turn["response"].replace('-s', '').replace('-ly', '')))
+    if type == "response":
+        input_data = slot_name_normalizer(input_data.lower())
+        input_data = md.detokenize(mt.tokenize(input_data.replace('-s', '').replace('-ly', '')))
+        return input_data
+    elif type == "state":
+        new_state = {}
+        for slot, value in input_data.items():
+            domain, slot = slot.split('-')
+            slot = slot.lower().replace(' ', '')
+            if slot == "arriveby": slot = "arrive"
+            elif slot == "leaveat": slot = "leave"
+            new_state[domain+"-"+slot] = normalize_state_slot_value(slot, value)
+        return new_state
+    elif type == "dialogue":  # In-place normalization
+        for dialogue in input_data.values():
+            for turn in dialogue:
+                turn["response"] = slot_name_normalizer(turn["response"].lower())
+                turn["response"] = md.detokenize(mt.tokenize(turn["response"].replace('-s', '').replace('-ly', '')))
 
-            if "state" not in turn:
-                continue
+                if "state" not in turn:
+                    continue
 
-            for domain in turn["state"]:
-                new_state = {}
-                for slot, value in turn["state"][domain].items():          
-                    slot = slot.lower().replace(' ', '')
-                    if slot == "arriveby": slot = "arrive"
-                    elif slot == "leaveat": slot = "leave"
-                    new_state[slot] =  normalize_state_slot_value(slot, value)
-                turn["state"][domain] = new_state
+                for domain in turn["state"]:
+                    new_state = {}
+                    for slot, value in turn["state"][domain].items():          
+                        slot = slot.lower().replace(' ', '')
+                        if slot == "arriveby": slot = "arrive"
+                        elif slot == "leaveat": slot = "leave"
+                        new_state[slot] =  normalize_state_slot_value(slot, value)
+                    turn["state"][domain] = new_state
+        return input_data
+    else:
+        raise ValueError(f"Unknown type {type} for normalization. Please use one of the following: response, state, dialogue.")
 
 def normalize_slot_name(slot_name):
     """ Map a slot name to the new unified ontology. """

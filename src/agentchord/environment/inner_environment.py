@@ -3,7 +3,7 @@ import json
 from .base_environment import BaseEnvironment
 
 TERMINATE_DESCRIPTION = {
-    "type": "functions",
+    "type": "function",
     "function": {
         "name": "terminate",
         "description": "Terminate the current agent turn and pass information to the next agent.",

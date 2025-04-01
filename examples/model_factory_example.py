@@ -2,7 +2,8 @@ from agentchord import ModelConfig
 from agentchord.model.model_factory import ModelFactory
 
 config = ModelConfig(
-    client_model="openai/gpt-4o-mini"
+    client_model="openai/Llama3.1-70B-Instruct",
+    temperature=0.0
 )
 model_factory = ModelFactory(config)
 model = model_factory.create_model()

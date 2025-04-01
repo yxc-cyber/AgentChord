@@ -72,14 +72,18 @@ with open(os.path.join(ENV_PATH, "MultiWOZ2.4/data/mwz2.4", "dev_dials.json"), "
 domains_indices, processed_dialogues = dict(), dict()
 for mode, data in dialogues.items():
     for dialogue_content in data:
+        valid = True
         for domain in dialogue_content["domains"]:
             if domain in CLEAN_DOMAINS:
                 if mode not in domains_indices:
                     domains_indices[mode] = {domain: list() for domain in CLEAN_DOMAINS}
                 domains_indices[mode][domain].append(dialogue_content["dialogue_idx"])
-                if mode not in processed_dialogues:
-                    processed_dialogues[mode] = dict()
-                processed_dialogues[mode][dialogue_content["dialogue_idx"]] = dialogue_content
+            else:
+                valid = False
+        if valid:
+            if mode not in processed_dialogues:
+                processed_dialogues[mode] = dict()
+            processed_dialogues[mode][dialogue_content["dialogue_idx"]] = dialogue_content
 
 # Load the goals
 goals = dict()
@@ -108,7 +112,7 @@ class Multiwoz24Environment(BaseEnvironment):
 
     @classmethod
     def evaluate_test_cases(cls, mode: str) -> MultiWOZ24MetaData:
-        matched_turns, true_positive, false_positive, false_negative, total_turns = 0.0, 0.0, 0.0, 0.0
+        matched_turns, true_positive, false_positive, false_negative, total_turns = 0.0, 0.0, 0.0, 0.0, 0.0
         for dialogue_idx, dialogue_eval_record in cls.evaluation_record[mode].items():
             inform, success = dict(), dict()
             for turn_idx, turn_eval_record in dialogue_eval_record.items():
@@ -221,6 +225,8 @@ class Multiwoz24Environment(BaseEnvironment):
         ground_truth_dialogue_state = dict()
         for ground_truth in ground_truth_raw:
             ground_truth_dialogue_state[ground_truth["slots"][0][0]] = ground_truth["slots"][0][1]
+        dialogue_state = normalize_data(dialogue_state, type="state")
+        ground_truth_dialogue_state = normalize_data(ground_truth_dialogue_state, type="state")
         for dialogue_state_slot, dialogue_state_value in dialogue_state.items():
             if dialogue_state_slot in ground_truth_dialogue_state:
                 domain, slot = dialogue_state_slot.split("-")
@@ -245,7 +251,7 @@ class Multiwoz24Environment(BaseEnvironment):
     # The following function is adapted from uiuc-conversational-ai-lab/multiwoz-helper:
     # https://github.com/uiuc-conversational-ai-lab/multiwoz-helper/blob/main/mwzeval/metrics.py#L160
     def compute_success(self, system_response: str, tool_usage: dict, goal: dict) -> Tuple[dict, dict]:
-        system_response = normalize_data(system_response)
+        system_response = normalize_data(system_response, type="response")
         requestable_slots_in_goal = {domain : set(goal[domain]["requestable"]) for domain in goal}
         offered_venues = {domain : list() for domain in goal}
         provided_requestable_slots = {domain : set() for domain in goal}
@@ -316,7 +322,7 @@ class Multiwoz24Environment(BaseEnvironment):
             # If values in sentences are super set of requestables
             provided_and_wanted_slots = provided_requestable_slots[domain] & requestable_slots_in_goal[domain]
             domain_success = len(provided_and_wanted_slots) == len(requestable_slots_in_goal[domain])
-            success[domain] = domain_success   
+            success[domain] = float(domain_success)
         # success["total"] = float(sum(success.values()) >= len(success.keys()))
         return match, success
 

@@ -11,13 +11,14 @@ from .base_agent_system import BaseAgentSystem
 
 
 class BaseAgent(BaseAgentSystem):
-    def __init__(self, system_name: str, environment: BaseEnvironment, prompt: str, model_config: ModelConfig, log_name: str = ""):
+    def __init__(self, system_name: str, environment: BaseEnvironment, prompt: str, model_config: ModelConfig, maximum_loops: int = 5, log_name: str = ""):
         self.prompt = prompt
         self.model_config = model_config
         self.model = ModelFactory(self.model_config).create_model()
         self.messages = list()
-        super().__init__(system_name=system_name, environment=environment, log_name=log_name)
+        super().__init__(system_name=system_name, environment=environment, maximum_loops=maximum_loops, log_name=log_name)
         self.messages_initialization()
+        self.logger.debug(f"Available tools: {self.tool_descriptions}")
 
     def execution_loop(self, meta_data: BaseMetaData, loop: bool = False) -> BaseMetaData:
         meta_data = self.execution(meta_data)
