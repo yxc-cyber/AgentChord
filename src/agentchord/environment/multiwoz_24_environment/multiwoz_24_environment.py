@@ -1,7 +1,7 @@
 import json
 import os
 import random
-from typing import Iterator, Optional, Tuple, Type
+from typing import Iterator, Optional, Tuple, Self
 
 from fuzzywuzzy import fuzz
 
@@ -106,7 +106,7 @@ class Multiwoz24Environment(BaseEnvironment):
     evaluation_record = dict()
 
     @classmethod
-    def iterate_test_cases(cls, mode: str) -> Iterator[Type["Multiwoz24Environment"]]:
+    def iterate_test_cases(cls, mode: str) -> Iterator[Self]:
         for dialogue_idx in cls.dialogues[mode]:
             yield cls(mode=mode, dialogue_idx=dialogue_idx)
 
@@ -179,7 +179,7 @@ class Multiwoz24Environment(BaseEnvironment):
                 grounding_utterance.append(f"""[User] {dialogue_turn["transcript"]}""")
         return "\n".join(grounding_utterance)
 
-    def iterate_dialog_turns(self) -> Iterator[Type["Multiwoz24Environment"]]:
+    def iterate_dialog_turns(self) -> Iterator[Self]:
         for turn_idx in range(len(self.dialogues[self.mode][self.dialogue_idx]["dialogue"])-1):
             yield self.__class__(self.mode, self.dialogue_idx, turn_idx)
 

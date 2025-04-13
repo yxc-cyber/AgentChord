@@ -1,4 +1,4 @@
-from typing import Any, Callable, Type
+from typing import Any, Callable, Self
 
 from ..environment import BaseEnvironment, InnerEnvironment
 from ..metadata import BaseMetaData
@@ -82,7 +82,7 @@ class BaseAgentSystem:
         elif self.inner_environment and self.inner_environment.get_tool_descriptions():
             self.tool_descriptions = list(self.inner_environment.get_tool_descriptions().values())
 
-    def add_subsystem(self, subsystem: Type["BaseAgentSystem"]):
+    def add_subsystem(self, subsystem: Self):
         subsystem_name = subsystem.system_name
         if subsystem_name in self.subsystems:
             raise Exception(f"Subsystem {subsystem_name} is already registered!")
