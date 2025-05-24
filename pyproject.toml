@@ -5,11 +5,14 @@ description = "This is a multi-agent framework that effectively orchestrates age
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "accelerate>=1.7.0",
     "fuzzywuzzy>=0.18.0",
     "litellm>=1.59.8",
     "numpy>=2.2.3",
+    "protobuf>=6.31.0",
     "python-levenshtein>=0.26.1",
     "sacremoses>=0.1.1",
+    "sentencepiece>=0.2.0",
     "torch>=2.7.0",
     "transformers>=4.52.3",
 ]

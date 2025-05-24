@@ -2,7 +2,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Un
 
 import torch
 from litellm import CustomStreamWrapper, Message, ModelResponse
-from transformers import LlamaConfig, LlamaForCausalLM, LlamaTokenizer
+from torch.func import jacrev, vmap
+from transformers import AutoTokenizer, LlamaConfig, LlamaForCausalLM, LlamaTokenizer
 from transformers.generation.utils import (
     BeamSearchScorer,
     ConstrainedBeamSearchScorer,
@@ -31,20 +32,65 @@ from transformers.models.llama.modeling_llama import (
 )
 
 if TYPE_CHECKING:
-    from transformers.modeling_utils import PreTrainedModel
     from transformers.generation.streamers import BaseStreamer
+    from transformers.modeling_utils import PreTrainedModel
 
 from .base_model import BaseModel
 
+# Gradient strategy constants
+FINEGRAINED = 0
 
-@auto_docstring
 class LlamaForCausalLM_GBC(LlamaForCausalLM):
     def __init__(self, config: LlamaConfig):
         super().__init__(config)
-        self.initial_input_embed = None
+        self.initial_inputs_embeds = None
+        self.gradient_strategy = FINEGRAINED
+
+    def set_initial_input_embed(self, inputs_embeds: List[torch.FloatTensor]):
+        """
+        Set the initial inputs_embeds for the model.
+        """
+        self.initial_inputs_embeds = inputs_embeds
 
     def reset_initial_input_embed(self):
-        self.initial_input_embed = None
+        self.initial_inputs_embeds = None
+
+    def set_gradient_strategy(self, strategy: int):
+        """
+        Set the gradient strategy for the model.
+        """
+        self.gradient_strategy = strategy
+
+    def calculate_gradient(
+        self,
+        inputs_embeds: List[torch.FloatTensor],
+        logits: torch.FloatTensor,
+    ):
+        """
+        Calculate the gradient of the logits with respect to the inputs_embeds.
+        """
+
+        # Calculate the gradient of the logits with respect to the inputs_embeds
+        gradients = list()
+        for batch_index in range(logits.shape[0]):
+            if self.gradient_strategy == FINEGRAINED:
+                # Compute the gradient of the logits with respect to the inputs_embeds
+                batch_grads = list()
+                for token_index in range(logits.shape[1]):
+                    grads = torch.autograd.grad(
+                        outputs=logits[batch_index][token_index],
+                        inputs=inputs_embeds[batch_index],
+                        retain_graph=True,
+                    )[0]
+                    batch_grads.append(grads)
+                # Concatenate the gradients for all tokens in the batch
+                batch_grads = torch.stack(batch_grads, dim=0)  # (output_sequence_length, input_sequence_length, hidden_size)
+                gradients.append(batch_grads)
+            else:
+                raise NotImplementedError(f"Gradient strategy {self.gradient_strategy} is not implemented.")
+        # Concatenate the gradients for all batches
+        gradients = torch.stack(gradients, dim=0)  # (batch_size, output_sequence_length, input_sequence_length, hidden_size)
+        return gradients
 
     @can_return_tuple
     @auto_docstring
@@ -68,15 +114,20 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
 
-        # Enable gradient for inputs_embeds
+        # Record the initial inputs_embeds
         inputs_embeds = inputs_embeds if inputs_embeds is not None else self.model.embed_tokens(input_ids)
-        inputs_embeds.requires_grad_(True)
-        if self.initial_input_embed is None:
-            self.initial_input_embed = inputs_embeds
+        if self.initial_inputs_embeds is None:
+            initial_inputs_embeds = list()
+            for i in range(inputs_embeds.shape[0]):
+                input_embed = inputs_embeds[i, :, :].clone().detach()
+                input_embed.requires_grad_(True)
+                initial_inputs_embeds.append(input_embed)
+            self.set_initial_input_embed(initial_inputs_embeds)
+            inputs_embeds = torch.stack(self.initial_inputs_embeds, dim=0)
 
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs: BaseModelOutputWithPast = self.model(
-            input_ids=input_ids,
+            input_ids=None,
             attention_mask=attention_mask,
             position_ids=position_ids,
             past_key_values=past_key_values,
@@ -140,11 +191,11 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
         tokenizer = kwargs.pop("tokenizer", None)  # Pull this out first, we only use it for stopping criteria
         assistant_tokenizer = kwargs.pop("assistant_tokenizer", None)  # only used for assisted generation
 
-        generation_config.return_dict_in_generate = True  # Always return dict in generate
-
         generation_config, model_kwargs = self._prepare_generation_config(
             generation_config, use_model_defaults, **kwargs
         )
+        generation_config.return_dict_in_generate = True  # Always return dict in generate
+        generation_config.output_logits = True  # Always return logits in generate
         self._validate_model_kwargs(model_kwargs.copy())
         self._validate_assistant(assistant_model, tokenizer, assistant_tokenizer)
 
@@ -521,6 +572,14 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
         ):
             result.past_key_values = result.past_key_values.to_legacy_cache()
 
+        # Compute the gradient of the logits with respect to the inputs_embeds
+        input_ids = result.sequences  # (batch_size, total_sequence_length)
+        logits = torch.stack(result.logits, dim=1)  # (batch_size, new_sequence_length, vocab_size)
+        picked_input_ids = input_ids[:, -logits.shape[1]:]  # (batch_size, new_sequence_length)
+        picked_logits = logits.gather(2, picked_input_ids.unsqueeze(-1)).squeeze(-1)  # (batch_size, new_sequence_length)
+        gradients = self.calculate_gradient(self.initial_inputs_embeds, picked_logits)
+        result.gradients = gradients  # (batch_size, new_sequence_length, input_sequence_length, hidden_size)
+
         # Reset initial input embedding to None
         self.reset_initial_input_embed()
         
@@ -541,3 +600,14 @@ class LlamaModel(BaseModel):
         ) -> Union[ModelResponse, CustomStreamWrapper]:
         # Convert messages to the format expected by the model
         pass
+
+if __name__ == "__main__":
+    model = LlamaForCausalLM_GBC.from_pretrained("/scratch/xy61/models/Llama3.1-8B-Instruct", device_map="auto", torch_dtype="auto")
+    tokenizer = AutoTokenizer.from_pretrained("/scratch/xy61/models/Llama3.1-8B-Instruct")
+    tokenizer.pad_token = tokenizer.eos_token
+    texts = ["Apple is healthy because", "Banana is healthy because", "Orange is healthy because"]
+    inputs = tokenizer(texts, return_tensors="pt", padding=True).to(model.device)
+    print(inputs)
+    outputs = model.generate(**inputs, max_length=50, do_sample=True, top_k=50, top_p=0.95, temperature=0.7, num_return_sequences=2)
+    print(outputs.sequences)
+    print(tokenizer.decode(outputs.sequences[0], skip_special_tokens=True))
