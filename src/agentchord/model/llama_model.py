@@ -5,7 +5,13 @@ import torch
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Function
 from torch.func import jacrev, vmap
-from transformers import AutoTokenizer, LlamaConfig, LlamaForCausalLM, LlamaTokenizer
+from transformers import (
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    LlamaConfig,
+    LlamaForCausalLM,
+    LlamaTokenizer,
+)
 from transformers.generation.utils import (
     BeamSearchScorer,
     ConstrainedBeamSearchScorer,
@@ -604,7 +610,12 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
 class LlamaModel(BaseLocalModel):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
-        self.model = LlamaForCausalLM_GBC.from_pretrained(config.model_path, device_map="auto", torch_dtype="auto")
+        self.model = LlamaForCausalLM_GBC.from_pretrained(
+            config.model_path,
+            device_map="auto",
+            torch_dtype="auto",
+            quantization_config=self.quantization_config,
+        )
         self.tokenizer = AutoTokenizer.from_pretrained(config.model_path)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         with open(self.config.chat_template_path, "r", encoding="utf-8") as f:

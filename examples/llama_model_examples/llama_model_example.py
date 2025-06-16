@@ -1,11 +1,23 @@
+import torch
+from transformers import BitsAndBytesConfig
+
 from agentchord import GBC
 from agentchord.gbc_object import GBCBase, visualize_gbc_tree
 from agentchord.model import ModelConfig, ModelFactory
 from agentchord.utils import INPUT_FOOTER, INPUT_HEADER, INPUT_SEPARATOR
 
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit = True,
+    bnb_4bit_use_double_quant = True,
+    bnb_4bit_quant_type = "nf4",
+    bnb_4bit_compute_dtype = torch.bfloat16
+)
+
 config = ModelConfig(
     local_model="LlamaModel",
     model_path="/shared/storage-01/users/xy61/models/Llama3.1-8B-Instruct",
+    quantization_config=bnb_config,
+    max_new_tokens=1024,
     # temperature=0.0,
     do_sample=False,
     gradient_strategy="sum_squares",

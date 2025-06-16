@@ -7,6 +7,7 @@ from litellm import (
     CustomStreamWrapper,
     ModelResponse,
 )
+from transformers import BitsAndBytesConfig
 from transformers.tokenization_utils_base import BatchEncoding
 
 from ..gbc_object import GBC, GBCBase
@@ -32,6 +33,7 @@ class BaseLocalModel(BaseModel):
         self.model = None
         self.tokenizer = None
         self.config = config
+        self.quantization_config = self.config.quantization_config
         if not self.config.model_path:
             raise ValueError("Local model path is not configured. Please provide a valid local path in the configuration.")
         if not self.config.gradient_strategy:

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, List, Literal, Optional, Type, Union
 
 from litellm import (
@@ -7,6 +7,7 @@ from litellm import (
     ChatCompletionPredictionContentParam,
 )
 from pydantic import BaseModel
+from transformers import BitsAndBytesConfig
 
 
 @dataclass
@@ -45,6 +46,7 @@ class ModelConfig:
     # Local model configuration
     local_model: Optional[Any] = None
     model_path: Optional[str] = None
+    quantization_config: Optional[BitsAndBytesConfig] = None
     gradient_strategy: Optional[Literal["finegrained", "sum_squares"]] = None
     connection_strategy: Optional[Literal["mean_product_input", "max_product_input", "mean_l1_norm", "max_l1_norm"]] = None
     chat_template_path: Optional[str] = None
@@ -102,4 +104,5 @@ class ModelConfig:
         if include_model:
             return_dict["local_model"] = self.local_model
             return_dict["model_path"] = self.model_path
+            return_dict["quantization_config"] = self.quantization_config
         return return_dict
