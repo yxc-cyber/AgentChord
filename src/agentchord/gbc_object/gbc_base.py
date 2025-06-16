@@ -1,7 +1,5 @@
 from typing import Any, List, Optional, Union
 
-from torch import Tensor
-
 
 class GBCBase:
     def bind_connections(self, connections: Union[list, Any], weights: Union[List[float], float]) -> None:
@@ -9,6 +7,8 @@ class GBCBase:
             connections = [connections]
         if not isinstance(weights, list):
             weights = [weights]
+        if connections and not weights:
+            weights = [1.0] * len(connections)
         assert len(connections) == len(weights), "Connections and weights must have the same length."
         self.connections = connections
         self.weights = weights

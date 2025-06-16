@@ -1,7 +1,9 @@
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+import re
+from typing import TYPE_CHECKING, Callable, List, Optional, Union
 
 import torch
-from litellm import CustomStreamWrapper, Message, ModelResponse
+from litellm import ChatCompletionMessageToolCall
+from litellm.types.utils import Function
 from torch.func import jacrev, vmap
 from transformers import AutoTokenizer, LlamaConfig, LlamaForCausalLM, LlamaTokenizer
 from transformers.generation.utils import (
@@ -37,7 +39,7 @@ if TYPE_CHECKING:
 
 from .base_local_model import BaseLocalModel
 from .model_config import ModelConfig
-from .utils import FINEGRAINED, GRADIENT_STRATEGIES, SUM_SQUARES
+from .utils import FINEGRAINED, SUM_SQUARES, parse_json_string
 
 
 class LlamaForCausalLM_GBC(LlamaForCausalLM):
@@ -94,7 +96,7 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
                     inputs=inputs_embeds[batch_index],
                     retain_graph=True,
                 )[0]  # (input_sequence_length, hidden_size)
-                gradients.append(batch_grads)
+                gradients.append(grads)
             else:
                 raise NotImplementedError(f"Gradient strategy {self.gradient_strategy} is not implemented.")
         # Concatenate the gradients for all batches
@@ -592,6 +594,7 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
         result.gradients = gradients
         # If FINEGRAINED: (batch_size, output_sequence_length, input_sequence_length, hidden_size)
         # If SUM_SQUARES: (batch_size, input_sequence_length, hidden_size)
+        result.embeds = torch.stack(self.initial_inputs_embeds, dim=0)  # (batch_size, input_sequence_length, hidden_size)
 
         # Reset initial input embedding to None
         self.reset_initial_input_embed()
@@ -601,25 +604,45 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
 class LlamaModel(BaseLocalModel):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
-        self.model = LlamaForCausalLM_GBC.from_pretrained(config.local_model, device_map="auto", torch_dtype="auto")
-        self.tokenizer = AutoTokenizer.from_pretrained(config.local_model)
+        self.model = LlamaForCausalLM_GBC.from_pretrained(config.model_path, device_map="auto", torch_dtype="auto")
+        self.tokenizer = AutoTokenizer.from_pretrained(config.model_path)
         self.tokenizer.pad_token = self.tokenizer.eos_token
+        with open(self.config.chat_template_path, "r", encoding="utf-8") as f:
+            chat_template = f.read()
+        self.tokenizer.chat_template = chat_template
         self.model.eval()
-        if not config.gradient_strategy:
-            raise ValueError("Gradient strategy must be specified in the configuration.")
-        if config.gradient_strategy not in GRADIENT_STRATEGIES:
-            raise ValueError(f"Invalid gradient strategy: {config.gradient_strategy}. Must be one of {GRADIENT_STRATEGIES}.")
-        self.gradient_strategy = config.gradient_strategy
-        self.model.set_gradient_strategy(GRADIENT_STRATEGIES[self.gradient_strategy])
+        self.model.set_gradient_strategy(self.gradient_strategy)
 
-
-if __name__ == "__main__":
-    model = LlamaForCausalLM_GBC.from_pretrained("/scratch/xy61/models/Llama3.1-8B-Instruct", device_map="auto", torch_dtype="auto")
-    tokenizer = AutoTokenizer.from_pretrained("/scratch/xy61/models/Llama3.1-8B-Instruct")
-    tokenizer.pad_token = tokenizer.eos_token
-    texts = ["Apple is healthy because", "Banana is healthy because", "Orange is healthy because"]
-    inputs = tokenizer(texts, return_tensors="pt", padding=True).to(model.device)
-    print(inputs)
-    outputs = model.generate(**inputs, max_length=50, do_sample=True, top_k=50, top_p=0.95, temperature=0.7, num_return_sequences=2)
-    print(outputs.sequences)
-    print(tokenizer.decode(outputs.sequences[0], skip_special_tokens=True))
+    def _get_tool_calls(self, output: str) -> Optional[List[ChatCompletionMessageToolCall]]:
+        """
+        Extract tool calls from the output string.
+        """
+        processed_output = parse_json_string(output)
+        if isinstance(processed_output, list):
+            tool_calls = list()
+            for call in processed_output:
+                if isinstance(call, dict) and "name" in call and ("arguments" in call or "parameters" in call):
+                    # Create a tool call from the dictionary
+                    tool_calls.append(ChatCompletionMessageToolCall(
+                        function=Function(
+                            name=call.get("name", None),
+                            arguments=call.get("arguments", dict()) or call.get("parameters", dict())
+                        )
+                    ))
+            if tool_calls:
+                return tool_calls
+            else:
+                return None
+        elif isinstance(processed_output, dict):
+            if "name" in processed_output and ("arguments" in processed_output or "parameters" in processed_output):
+                # Create a single tool call from the dictionary
+                return [ChatCompletionMessageToolCall(
+                    function=Function(
+                        name=processed_output.get("name", None),
+                        arguments=processed_output.get("arguments", dict()) or processed_output.get("parameters", dict())
+                    )
+                )]
+            else:
+                return None
+        else:
+            return None

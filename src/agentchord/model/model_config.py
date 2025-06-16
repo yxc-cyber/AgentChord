@@ -44,10 +44,20 @@ class ModelConfig:
 
     # Local model configuration
     local_model: Optional[Any] = None
-    gradient_strategy: Optional[Literal["none", "ddp", "fsdp"]] = None
+    model_path: Optional[str] = None
+    gradient_strategy: Optional[Literal["finegrained", "sum_squares"]] = None
+    connection_strategy: Optional[Literal["mean_product_input", "max_product_input", "mean_l1_norm", "max_l1_norm"]] = None
+    chat_template_path: Optional[str] = None
+    max_length: Optional[int] = None
+    max_new_tokens: Optional[int] = None
+    do_sample: Optional[bool] = None
+    top_k: Optional[int] = None
+    # top_p: Optional[float] = None
+    # temperature: Optional[float] = None
+    num_return_sequences: Optional[int] = None
 
     def get_client_configuration(self) -> dict:
-        return {
+        return_dict = {
             "model": self.client_model,
             "timeout": self.timeout,
             "temperature": self.temperature,
@@ -75,8 +85,21 @@ class ModelConfig:
             "model_list": self.model_list,
             "extra_headers": self.extra_headers,
         }
+        return_dict = {k: v for k, v in return_dict.items() if v is not None}
+        return return_dict
     
     def get_local_configuration(self, include_model: bool = True) -> dict:
-        return {
-            "model": self.local_model,
+        return_dict = {
+            "max_length": self.max_length,
+            "max_new_tokens": self.max_new_tokens,
+            "do_sample": self.do_sample,
+            "top_k": self.top_k,
+            "top_p": self.top_p,
+            "temperature": self.temperature,
+            "num_return_sequences": self.num_return_sequences,
         }
+        return_dict = {k: v for k, v in return_dict.items() if v is not None}
+        if include_model:
+            return_dict["local_model"] = self.local_model
+            return_dict["model_path"] = self.model_path
+        return return_dict
