@@ -1,3 +1,4 @@
+import threading
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -11,7 +12,13 @@ from transformers import BitsAndBytesConfig
 from transformers.tokenization_utils_base import BatchEncoding
 
 from ..gbc_object import GBC, GBCBase
-from ..utils import INPUT_FOOTER, INPUT_HEADER, INPUT_SEPARATOR
+from ..utils import (
+    INPUT_FOOTER,
+    INPUT_HEADER,
+    INPUT_SEPARATOR,
+    TOOL_FOOTER,
+    TOOL_HEADER,
+)
 from .base_model import BaseModel
 from .model_config import ModelConfig
 from .utils import (
@@ -24,10 +31,11 @@ from .utils import (
     MEAN_PRODUCT_INPUT,
     SUM_SQUARES,
     Message,
+    SingletonMeta,
 )
 
 
-class BaseLocalModel(BaseModel):
+class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         self.model = None
@@ -100,10 +108,12 @@ class BaseLocalModel(BaseModel):
                 - input_blocks: A list of lists, where each inner list contains tuples of (block_start[included], block_end[included]).
                 - encoding: The tokenized encoding of the processed conversations.
         """
-        # Find indices of input header, input footer, and input separators
+        # Find indices of input header, input footer, input separators, tool header, and tool footer
         input_header_indices = list()
         input_footer_indices = list()
         input_separator_indices = list()
+        tool_header_indices = list()
+        tool_footer_indices = list()
         for messages_processed in conversations_processed:
             input_header_indices.append(messages_processed.find(INPUT_HEADER))
             input_footer_indices.append(messages_processed.find(INPUT_FOOTER))
@@ -117,6 +127,21 @@ class BaseLocalModel(BaseModel):
                     input_separator_indices_temp.append(sep_pos)
                 sep_pos += len(INPUT_SEPARATOR)
             input_separator_indices.append(input_separator_indices_temp)
+            tool_header_indices_temp = list()
+            tool_footer_indices_temp = list()
+            sep_pos = 0
+            while True:
+                tool_header_idx = messages_processed.find(TOOL_HEADER, sep_pos)
+                if tool_header_idx == -1:
+                    break
+                tool_header_indices_temp.append(tool_header_idx)
+                tool_footer_idx = messages_processed.find(TOOL_FOOTER, tool_header_idx + len(TOOL_HEADER))
+                if tool_footer_idx == -1:
+                    raise ValueError(f"Tool footer not found for tool header at index {tool_header_idx}. Please check the input messages.")
+                tool_footer_indices_temp.append(tool_footer_idx)
+                sep_pos = tool_footer_idx + len(TOOL_FOOTER)
+            tool_header_indices.append(tool_header_indices_temp)
+            tool_footer_indices.append(tool_footer_indices_temp)
 
         # Tokenize the processed messages
         encoding = self.tokenizer(
@@ -128,27 +153,41 @@ class BaseLocalModel(BaseModel):
 
         input_blocks = list()
         # Find the indices of the input header, footer, and separators in the tokenized input_ids
-        for conversation, input_header_idx, input_footer_idx, input_separator_idcs in zip(conversations_processed, input_header_indices, input_footer_indices, input_separator_indices):
+        for conversation, input_header_idx, input_footer_idx, input_separator_idcs, tool_header_idcs, tool_footer_idcs in \
+            zip(conversations_processed, input_header_indices, input_footer_indices, input_separator_indices, tool_header_indices, tool_footer_indices):
             input_blocks_temp = list()
-            block_start = len(self.tokenizer(
-                conversation[:input_header_idx+len(INPUT_HEADER)],
-                return_tensors="pt",
-            )["input_ids"][0])
-            for input_separator_idx in input_separator_idcs:
-                block_end = len(self.tokenizer(
-                    conversation[:input_separator_idx],
-                    return_tensors="pt",
-                )["input_ids"][0])
-                input_blocks_temp.append((block_start + 1, block_end))  # (block_start[included], block_end[included])
+            if input_header_idx != -1 and input_footer_idx != -1:
                 block_start = len(self.tokenizer(
-                    conversation[:input_separator_idx+len(INPUT_SEPARATOR)],
+                    conversation[:input_header_idx+len(INPUT_HEADER)],
                     return_tensors="pt",
                 )["input_ids"][0])
-            block_end = len(self.tokenizer(
-                conversation[:input_footer_idx+len(INPUT_FOOTER)],
-                return_tensors="pt",
-            )["input_ids"][0])
-            input_blocks_temp.append((block_start + 1, block_end))
+                for input_separator_idx in input_separator_idcs:
+                    block_end = len(self.tokenizer(
+                        conversation[:input_separator_idx],
+                        return_tensors="pt",
+                    )["input_ids"][0])
+                    input_blocks_temp.append((block_start, block_end-1))  # (block_start[included], block_end[included])
+                    block_start = len(self.tokenizer(
+                        conversation[:input_separator_idx+len(INPUT_SEPARATOR)],
+                        return_tensors="pt",
+                    )["input_ids"][0])
+                block_end = len(self.tokenizer(
+                    conversation[:input_footer_idx],
+                    return_tensors="pt",
+                )["input_ids"][0])
+                input_blocks_temp.append((block_start, block_end-1))  # (block_start[included], block_end[included])
+            if tool_header_idcs and tool_footer_idcs:
+                for tool_header_idx, tool_footer_idx in zip(tool_header_idcs, tool_footer_idcs):
+                    if tool_header_idx != -1 and tool_footer_idx != -1:
+                        block_start = len(self.tokenizer(
+                            conversation[:tool_header_idx+len(TOOL_HEADER)],
+                            return_tensors="pt",
+                        )["input_ids"][0])
+                        block_end = len(self.tokenizer(
+                            conversation[:tool_footer_idx],
+                            return_tensors="pt",
+                        )["input_ids"][0])
+                        input_blocks_temp.append((block_start, block_end-1))
             input_blocks.append(input_blocks_temp)
 
         # input_blocks is a list of lists, where each inner list contains tuples of (block_start[included], block_end[included])

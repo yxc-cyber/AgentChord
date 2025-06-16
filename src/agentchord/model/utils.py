@@ -108,3 +108,14 @@ def parse_json_string(json_string: str) -> Optional[Union[dict, list]]:
             return json.loads(json_content)
         else:
             return None
+        
+
+# Singleton metaclass for ensuring a single instance of a class
+class SingletonMeta(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        # Todo: control the behavior based on the configuration. Don't create a new instance if the configuration already exists.
+        if cls not in cls._instances:
+            cls._instances[cls] = super().__call__(*args, **kwargs)
+        return cls._instances[cls]

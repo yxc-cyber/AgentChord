@@ -1,12 +1,12 @@
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Optional
+from typing import List, Optional, Union
 
 
 @dataclass
 class BaseMetaData:
-    input: str = ""
-    note: str = ""
+    input: Union[str, List[str]] = ""
+    note: Union[str, List[str]] = ""
     tool: list = field(default_factory=list)
     output: str = ""
     sample_id: int = 0

@@ -10,12 +10,12 @@ def build_tree_graph(root: GBCBase) -> nx.DiGraph:
     G = nx.DiGraph()
     def add_edges(node):
         G.add_node(node.get_node_representation(), label=node.get_node_representation())
-        for child in node.get_connections():
+        for child, weight in zip(node.get_connections(), node.get_weights()):
             if not isinstance(child, GBCBase):
-                G.add_edge(node.get_node_representation(), str(child))
+                G.add_edge(node.get_node_representation(), str(child), label=str(weight))
                 G.add_node(str(child), label=str(child))
             else:
-                G.add_edge(node.get_node_representation(), child.get_node_representation())
+                G.add_edge(node.get_node_representation(), child.get_node_representation(), label=str(weight))
                 add_edges(child)
     add_edges(root)
     return G
@@ -111,6 +111,12 @@ def plot_tree(G, pos=None, ax=None, node_size=None, save_path="gbc_tree_visualiz
         edge_color=edge_color, 
         connectionstyle='arc3,rad=0.1',
         ax=ax
+    )
+
+    # Draw edge labels
+    edge_labels = nx.get_edge_attributes(G, 'label')
+    nx.draw_networkx_edge_labels(
+        G, pos, edge_labels=edge_labels, font_size=8, label_pos=0.5, ax=ax
     )
     
     # Custom node drawing with rectangular boxes

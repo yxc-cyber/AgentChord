@@ -240,8 +240,4 @@ for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_
         #     break
     if dialogue_idx > 2:
         break
-evaluation_result = Multiwoz24Environment.evaluate_test_cases(mode="test").to_json("./examples/multiwoz_24_evaluation.json")
-print(evaluation_result)
-# Save Multiwoz24Environment.evaluation_record to a json file
-# with open("./examples/evaluation_record.json", "w") as f:
-#     json.dump(Multiwoz24Environment.evaluation_record, f, indent=4)
+evaluation_result = Multiwoz24Environment.evaluate_test_cases(mode="test").to_json("examples/multiwoz_24_examples/multiwoz_24_evaluation_example.json")

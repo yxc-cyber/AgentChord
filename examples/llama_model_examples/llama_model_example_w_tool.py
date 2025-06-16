@@ -1,7 +1,13 @@
 from agentchord import GBC
 from agentchord.gbc_object import GBCBase, visualize_gbc_tree
 from agentchord.model import ModelConfig, ModelFactory
-from agentchord.utils import INPUT_FOOTER, INPUT_HEADER, INPUT_SEPARATOR
+from agentchord.utils import (
+    INPUT_FOOTER,
+    INPUT_HEADER,
+    INPUT_SEPARATOR,
+    TOOL_FOOTER,
+    TOOL_HEADER,
+)
 
 config = ModelConfig(
     local_model="LlamaModel",
@@ -23,9 +29,52 @@ input_content = GBC(
         "Well, I found a girl, beautiful and sweet. Oh, I never knew you were the someone waitin' for me."
     ]
 )
+txt1 = GBC(
+    value = "I found a love for me. Oh, darlin', just dive right in and follow my lead.",
+    connections=[
+        "I found a love for me. Oh, darlin', just dive right in and follow my lead."
+    ],
+    weights=[1.0]
+)
+txt2 = GBC(
+    value = "Weather Condition: Isolated thunderstorms throughout the day.",
+    connections=[
+        "Weather Condition: Isolated thunderstorms throughout the day."
+    ],
+    weights=[1.0]
+)
+txt3 = GBC(
+    value = "Well, I found a girl, beautiful and sweet. Oh, I never knew you were the someone waitin' for me.",
+    connections=[
+        "Well, I found a girl, beautiful and sweet. Oh, I never knew you were the someone waitin' for me.",
+    ],
+    weights=[1.0]
+)
+text4 = GBC(
+    value = "Isolated thunderstorms throughout the day",
+    connections=[txt1, txt2, txt3],
+    weights=[1.0, 1.0, 1.0],
+)
+tool_result = GBC(
+    value = f"{TOOL_HEADER}Isolated thunderstorms throughout the day{TOOL_FOOTER}",
+    connections=[
+        txt1,
+        txt2,
+        txt3,
+        text4
+    ],
+    weights=[
+        1.0,  # Connection to txt1
+        1.0,  # Connection to txt2
+        1.0,  # Connection to txt3
+        1.0   # Connection to text4
+    ]
+)
 messages = [
     {"role": "system", "content": "You are a helpful agent that can output information about today's weather based on the input. You have to report the answer using the Response tool."},
-    {"role": "user", "content": input_content}
+    {"role": "user", "content": input_content},
+    {"role": "assistant", "content": None, 'tool_calls': [{'function': {'arguments': '{"city":"champaign"}', 'name': 'query_weather'}, 'id': 'call_xBGr1c7JqAnbRMbkzM2F68ob', 'type': 'function'}]},
+    {'role': 'tool', 'tool_call_id': 'call_xBGr1c7JqAnbRMbkzM2F68ob', 'name': 'query_weather', 'content': tool_result}
 ]
 tools = [
     {

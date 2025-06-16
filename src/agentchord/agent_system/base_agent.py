@@ -4,9 +4,21 @@ from typing import Any, List
 from litellm import Message
 
 from ..environment import BaseEnvironment
+from ..gbc_object import GBC, GBCBase
 from ..metadata import BaseMetaData
 from ..model import ModelConfig, ModelFactory
-from ..utils import EMPTY_PLACEHOLDER, INPUT_WITH_NOTE, NOTE_NO_ACTION
+from ..utils import (
+    EMPTY_PLACEHOLDER,
+    INPUT_FOOTER,
+    INPUT_HEADER,
+    INPUT_SEPARATOR,
+    INPUT_WITH_NOTE,
+    NOTE_NO_ACTION,
+    OUTPUT_NOTE_INFO,
+    TOOL_FOOTER,
+    TOOL_HEADER,
+    TOOL_INFO,
+)
 from .base_agent_system import BaseAgentSystem
 
 
@@ -38,17 +50,69 @@ class BaseAgent(BaseAgentSystem):
         previous_tool_usage = meta_data.tool
         meta_data.input = ""
         meta_data.note = ""
-        # meta_data.tool = list() # Keep the previous tool usage
+        # meta_data.tool = list()  # Keep the previous tool usage
         meta_data.output = ""
-        self.messages.append({
-            "role": "user",
-            "content": INPUT_WITH_NOTE.format(
+
+        # Prepare the input content and previous note
+        assert (isinstance(input_content, str) and isinstance(previous_note, str)) \
+            or (isinstance(input_content, list) and isinstance(previous_note, list) and len(input_content)==len(previous_note)), \
+            "Input and note must be either both strings or both lists of strings."
+        if isinstance(input_content, str):
+            content = INPUT_WITH_NOTE.format(
                 input = input_content or EMPTY_PLACEHOLDER,
                 note = previous_note or EMPTY_PLACEHOLDER
             )
-        })
+            content = f"{INPUT_HEADER}{content}{INPUT_FOOTER}"
+            if isinstance(input_content, GBCBase):
+                content = GBC(
+                    content,
+                    connections=input_content.get_connections(),
+                    weights=input_content.get_weights(),
+                    subject=self.system_name
+                )
+            else:
+                content = GBC(
+                    content,
+                    connections=input_content,
+                    weights=1.0,
+                    subject=self.system_name
+                )
+            self.messages.append({
+                "role": "user",
+                "content": content
+            })
+        elif isinstance(input_content, list):
+            content_list = [INPUT_WITH_NOTE.format(
+                input = input_content or EMPTY_PLACEHOLDER,
+                note = previous_note or EMPTY_PLACEHOLDER
+            ) for input_content, previous_note in zip(input_content, previous_note)]
+            content = f"{INPUT_HEADER}{INPUT_SEPARATOR.join(content_list)}{INPUT_FOOTER}"
+            connections = list()
+            weights = list()
+            for single_input_content in input_content:
+                if isinstance(single_input_content, GBCBase):
+                    connections.extend(single_input_content.get_connections())
+                    weights.extend(single_input_content.get_weights())
+                else:
+                    connections.append(single_input_content)
+                    weights.append(1.0)
+            content = GBC(
+                content,
+                connections=connections,
+                weights=weights,
+                subject=self.system_name
+            )
+            self.messages.append({
+                "role": "user",
+                "content": content
+            })
+        else:
+            raise ValueError("Input and note must be either both strings or both lists of strings.")
+        
+        # Begin the execution loop
         terminate = False
         loop_counter = 0
+        connection_pool = content.get_connections()
         while not terminate and loop_counter < self.maximum_loops:
             self.logger.debug(f"Message history: {self.messages}")
             output_message = self.completion(self.messages)
@@ -62,12 +126,48 @@ class BaseAgent(BaseAgentSystem):
                     if tool_name == self.inner_environment.TERMINATE:
                         tool_result = self.inner_environment.apply_tool(tool_name, tool_arguments)
                         tool_result_dict = json.loads(tool_result)
-                        meta_data.output = tool_result_dict["output"]
-                        meta_data.note = tool_result_dict["note"]
+                        output_note_info = OUTPUT_NOTE_INFO.format(
+                            output = tool_result_dict["output"] or EMPTY_PLACEHOLDER,
+                            note = tool_result_dict["note"] or EMPTY_PLACEHOLDER
+                        )
+                        output_note_info = GBC(
+                            output_note_info,
+                            connections=output_message.gbc_tool_calls.get_connections(),
+                            weights=output_message.gbc_tool_calls.get_weights(),
+                            subject=self.system_name
+                        )
+                        meta_data.output = GBC(
+                            tool_result_dict["output"], 
+                            connections=output_note_info,
+                            weights=1.0,
+                            subject=self.system_name
+                        )
+                        meta_data.note = GBC(
+                            tool_result_dict["note"],
+                            connections=output_note_info,
+                            weights=1.0,
+                            sdubject=self.system_name
+                        )
                         terminate = True
                     else:
                         tool_result = self.environment.apply_tool(tool_name, tool_arguments)
                         meta_data.tool.append({"tool_name": tool_name, "tool_arguments": tool_arguments, "tool_result": tool_result})
+                    
+                    tool_info = TOOL_INFO.format(tool_result = tool_result or EMPTY_PLACEHOLDER)
+                    tool_info = GBC(
+                        tool_info,
+                        connections=output_message.gbc_tool_calls.get_connections(),
+                        weights=output_message.gbc_tool_calls.get_weights(),
+                        subject=self.system_name
+                    )
+                    connection_pool.append(tool_info)
+                    tool_result = f"{TOOL_HEADER}{tool_result}{TOOL_FOOTER}"
+                    tool_result = GBC(
+                        tool_result,
+                        connections=connection_pool,
+                        weights=[1.0] * len(connection_pool),
+                        subject=self.system_name
+                    )
                     self.messages.append({
                         "role":"tool",
                         "tool_call_id":tool_call_id,
@@ -75,9 +175,27 @@ class BaseAgent(BaseAgentSystem):
                         "content":tool_result
                     })
             else:
-                meta_data.output = ""
-                meta_data.note = NOTE_NO_ACTION.format(
-                    output = output_message.content or EMPTY_PLACEHOLDER
+                output_note_info = OUTPUT_NOTE_INFO.format(
+                    output = output_message.content or EMPTY_PLACEHOLDER,
+                    note = EMPTY_PLACEHOLDER
+                )
+                output_note_info = GBC(
+                    output_note_info,
+                    connections=output_message.gbc_content.get_connections(),
+                    weights=output_message.gbc_content.get_weights(),
+                    subject=self.system_name
+                )
+                meta_data.output = GBC(
+                    "",
+                    connections=output_note_info,
+                    weights=1.0,
+                    subject=self.system_name
+                )
+                meta_data.note = GBC(
+                    NOTE_NO_ACTION.format(output = output_message.content or EMPTY_PLACEHOLDER),
+                    connections=output_note_info,
+                    weights=1.0,
+                    subject=self.system_name
                 )
                 terminate = True
             loop_counter += 1
