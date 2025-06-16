@@ -9,5 +9,11 @@ class ModelFactory:
     def create_model(self) -> BaseModel:
         if self.config.client_model:
             return BaseModel(self.config)
+        elif self.config.local_model:
+            if self.config.local_model == "LlamaModel":
+                from .llama_model import LlamaModel
+                return LlamaModel(self.config)
+            else:
+                raise ValueError(f"Unsupported local model: {self.config.local_model}")
         else:
-            raise NotImplementedError
+            raise ValueError("No model configuration provided. Please specify either client_model or local_model.")

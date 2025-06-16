@@ -35,16 +35,16 @@ if TYPE_CHECKING:
     from transformers.generation.streamers import BaseStreamer
     from transformers.modeling_utils import PreTrainedModel
 
-from .base_model import BaseModel
+from .base_local_model import BaseLocalModel
+from .model_config import ModelConfig
+from .utils import FINEGRAINED, GRADIENT_STRATEGIES, SUM_SQUARES
 
-# Gradient strategy constants
-FINEGRAINED = 0
 
 class LlamaForCausalLM_GBC(LlamaForCausalLM):
-    def __init__(self, config: LlamaConfig):
+    def __init__(self, config: LlamaConfig, gradient_strategy: int = SUM_SQUARES):
         super().__init__(config)
         self.initial_inputs_embeds = None
-        self.gradient_strategy = FINEGRAINED
+        self.gradient_strategy = gradient_strategy
 
     def set_initial_input_embed(self, inputs_embeds: List[torch.FloatTensor]):
         """
@@ -86,10 +86,21 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
                 # Concatenate the gradients for all tokens in the batch
                 batch_grads = torch.stack(batch_grads, dim=0)  # (output_sequence_length, input_sequence_length, hidden_size)
                 gradients.append(batch_grads)
+            elif self.gradient_strategy == SUM_SQUARES:
+                logits_sum_squares = logits[batch_index].pow(2).sum()
+                # Compute the gradient of the sum of squares of logits with respect to the inputs_embeds
+                grads = torch.autograd.grad(
+                    outputs=logits_sum_squares,
+                    inputs=inputs_embeds[batch_index],
+                    retain_graph=True,
+                )[0]  # (input_sequence_length, hidden_size)
+                gradients.append(batch_grads)
             else:
                 raise NotImplementedError(f"Gradient strategy {self.gradient_strategy} is not implemented.")
         # Concatenate the gradients for all batches
-        gradients = torch.stack(gradients, dim=0)  # (batch_size, output_sequence_length, input_sequence_length, hidden_size)
+        gradients = torch.stack(gradients, dim=0)
+        # If FINEGRAINED: (batch_size, output_sequence_length, input_sequence_length, hidden_size)
+        # If SUM_SQUARES: (batch_size, input_sequence_length, hidden_size)
         return gradients
 
     @can_return_tuple
@@ -578,28 +589,29 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
         picked_input_ids = input_ids[:, -logits.shape[1]:]  # (batch_size, new_sequence_length)
         picked_logits = logits.gather(2, picked_input_ids.unsqueeze(-1)).squeeze(-1)  # (batch_size, new_sequence_length)
         gradients = self.calculate_gradient(self.initial_inputs_embeds, picked_logits)
-        result.gradients = gradients  # (batch_size, new_sequence_length, input_sequence_length, hidden_size)
+        result.gradients = gradients
+        # If FINEGRAINED: (batch_size, output_sequence_length, input_sequence_length, hidden_size)
+        # If SUM_SQUARES: (batch_size, input_sequence_length, hidden_size)
 
         # Reset initial input embedding to None
         self.reset_initial_input_embed()
         
         return result
 
-class LlamaModel(BaseModel):
-    def __init__(self, config):
+class LlamaModel(BaseLocalModel):
+    def __init__(self, config: ModelConfig):
         super().__init__(config)
-        self.model = LlamaForCausalLM.from_pretrained(config.client_model, device_map="auto", torch_dtype="auto")
-        self.tokenizer = LlamaTokenizer.from_pretrained(config.client_model)
+        self.model = LlamaForCausalLM_GBC.from_pretrained(config.local_model, device_map="auto", torch_dtype="auto")
+        self.tokenizer = AutoTokenizer.from_pretrained(config.local_model)
+        self.tokenizer.pad_token = self.tokenizer.eos_token
         self.model.eval()
+        if not config.gradient_strategy:
+            raise ValueError("Gradient strategy must be specified in the configuration.")
+        if config.gradient_strategy not in GRADIENT_STRATEGIES:
+            raise ValueError(f"Invalid gradient strategy: {config.gradient_strategy}. Must be one of {GRADIENT_STRATEGIES}.")
+        self.gradient_strategy = config.gradient_strategy
+        self.model.set_gradient_strategy(GRADIENT_STRATEGIES[self.gradient_strategy])
 
-    def completion(
-            self,
-            messages: List[Union[dict, Message]],
-            tools: Optional[list] = None,
-            tool_choice: Optional[str] = None
-        ) -> Union[ModelResponse, CustomStreamWrapper]:
-        # Convert messages to the format expected by the model
-        pass
 
 if __name__ == "__main__":
     model = LlamaForCausalLM_GBC.from_pretrained("/scratch/xy61/models/Llama3.1-8B-Instruct", device_map="auto", torch_dtype="auto")

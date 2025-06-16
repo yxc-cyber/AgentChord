@@ -1,11 +1,15 @@
 EMPTY_PLACEHOLDER = "(Empty)"
 
+INPUT_HEADER = "<INPUT_BLOCK>"
+INPUT_SEPARATOR = "<INPUT_SEPARATOR>"
+INPUT_FOOTER = "</INPUT_BLOCK>"
+
 INPUT_WITH_NOTE = """
-# Input from the previous agent
+# Input from a previous agent
 <input>
 {input}
 </input>
-# Note from the previous agent
+# Note from a previous agent
 <note>
 {note}
 </note>

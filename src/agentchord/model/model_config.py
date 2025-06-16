@@ -44,6 +44,7 @@ class ModelConfig:
 
     # Local model configuration
     local_model: Optional[Any] = None
+    gradient_strategy: Optional[Literal["none", "ddp", "fsdp"]] = None
 
     def get_client_configuration(self) -> dict:
         return {
@@ -75,7 +76,7 @@ class ModelConfig:
             "extra_headers": self.extra_headers,
         }
     
-    def get_local_configuration(self) -> dict:
+    def get_local_configuration(self, include_model: bool = True) -> dict:
         return {
             "model": self.local_model,
         }
