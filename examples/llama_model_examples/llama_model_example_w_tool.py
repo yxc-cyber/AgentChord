@@ -1,3 +1,6 @@
+import torch
+from transformers import BitsAndBytesConfig
+
 from agentchord import GBC
 from agentchord.gbc_object import GBCBase, visualize_gbc_tree
 from agentchord.model import ModelConfig, ModelFactory
@@ -9,9 +12,17 @@ from agentchord.utils import (
     TOOL_HEADER,
 )
 
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit = True,
+    bnb_4bit_use_double_quant = True,
+    bnb_4bit_quant_type = "nf4",
+    bnb_4bit_compute_dtype = torch.bfloat16
+)
+
 config = ModelConfig(
     local_model="LlamaModel",
     model_path="/shared/storage-01/users/xy61/models/Llama3.1-8B-Instruct",
+    quantization_config=bnb_config,
     max_new_tokens=1024,
     # temperature=0.0,
     do_sample=False,
@@ -22,31 +33,31 @@ config = ModelConfig(
 model_factory = ModelFactory(config)
 model = model_factory.create_model()
 input_content = GBC(
-    value = f"{INPUT_HEADER}I found a love for me. Oh, darlin', just dive right in and follow my lead.{INPUT_SEPARATOR}Weather Condition: Isolated thunderstorms throughout the day.{INPUT_SEPARATOR}Well, I found a girl, beautiful and sweet. Oh, I never knew you were the someone waitin' for me.{INPUT_FOOTER}",
+    value = f"{INPUT_HEADER}Input 1: A football match will be held tomorrow.{INPUT_SEPARATOR}Input 2: Weather Condition: Isolated thunderstorms throughout the day.{INPUT_SEPARATOR}Input 3: A cat sat on a mat.{INPUT_FOOTER}",
     connections= [
-        "I found a love for me. Oh, darlin', just dive right in and follow my lead.",
-        "Weather Condition: Isolated thunderstorms throughout the day.",
-        "Well, I found a girl, beautiful and sweet. Oh, I never knew you were the someone waitin' for me."
+        "Input 1: A football match will be held tomorrow.",
+        "Input 2: Weather Condition: Isolated thunderstorms throughout the day.",
+        "Input 3: A cat sat on a mat."
     ]
 )
 txt1 = GBC(
-    value = "I found a love for me. Oh, darlin', just dive right in and follow my lead.",
+    value = "Input 1: A football match will be held tomorrow.",
     connections=[
-        "I found a love for me. Oh, darlin', just dive right in and follow my lead."
+        "Input 1: A football match will be held tomorrow."
     ],
     weights=[1.0]
 )
 txt2 = GBC(
-    value = "Weather Condition: Isolated thunderstorms throughout the day.",
+    value = "Input 2: Weather Condition: Isolated thunderstorms throughout the day.",
     connections=[
-        "Weather Condition: Isolated thunderstorms throughout the day."
+        "Input 2: Weather Condition: Isolated thunderstorms throughout the day."
     ],
     weights=[1.0]
 )
 txt3 = GBC(
-    value = "Well, I found a girl, beautiful and sweet. Oh, I never knew you were the someone waitin' for me.",
+    value = "Input 3: A cat sat on a mat.",
     connections=[
-        "Well, I found a girl, beautiful and sweet. Oh, I never knew you were the someone waitin' for me.",
+        "Input 3: A cat sat on a mat.",
     ],
     weights=[1.0]
 )
@@ -71,7 +82,7 @@ tool_result = GBC(
     ]
 )
 messages = [
-    {"role": "system", "content": "You are a helpful agent that can output information about today's weather based on the input. You have to report the answer using the Response tool."},
+    {"role": "system", "content": "You are a helpful agent that can extract information about today's weather based on the input. Important: You have to use the response tool to respond. Put the response in the tool result."},
     {"role": "user", "content": input_content},
     {"role": "assistant", "content": None, 'tool_calls': [{'function': {'arguments': '{"city":"champaign"}', 'name': 'query_weather'}, 'id': 'call_xBGr1c7JqAnbRMbkzM2F68ob', 'type': 'function'}]},
     {'role': 'tool', 'tool_call_id': 'call_xBGr1c7JqAnbRMbkzM2F68ob', 'name': 'query_weather', 'content': tool_result}
@@ -93,12 +104,35 @@ tools = [
                 "required": ["response"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_weather",
+            "description": "Query the weather based on the input.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {
+                        "type": "string",
+                        "description": "The city for which to query the weather."
+                    }
+                },
+                "required": ["city"]
+            }
+        }
     }
 ]
 
 response = model.completion(messages, tools=tools)
 print(response)
-output = response.choices[0].message.gbc_tool_calls
-print(f"Is the output a GBC object? {isinstance(output, GBCBase)}")
-print(f"Class of the output: {output.__class__.__name__}")
-visualize_gbc_tree(response.choices[0].message.gbc_tool_calls, save_path="examples/llama_model_examples/llama_model_example_w_tool.png")
+try:
+    output = response.choices[0].message.gbc_tool_calls
+    print(f"Is the output a GBC object? {isinstance(output, GBCBase)}")
+    print(f"Class of the output: {output.__class__.__name__}")
+    visualize_gbc_tree(response.choices[0].message.gbc_tool_calls, save_path="examples/llama_model_examples/llama_model_example_w_tool.png")
+except:
+    output = response.choices[0].message.gbc_content
+    print(f"Is the output a GBC object? {isinstance(output, GBCBase)}")
+    print(f"Class of the output: {output.__class__.__name__}")
+    visualize_gbc_tree(response.choices[0].message.gbc_content, save_path="examples/llama_model_examples/llama_model_example_w_tool.png")
