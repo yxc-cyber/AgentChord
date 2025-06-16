@@ -165,7 +165,6 @@ class BaseLocalModel(BaseModel):
             skip_special_tokens=True,
             clean_up_tokenization_spaces=True,
         )
-        print(f"Inputs + Outputs: {inputs_outputs}")
         outputs = list()
         for input, input_output in zip(inputs, inputs_outputs):
             assert input_output.startswith(input)
@@ -247,15 +246,12 @@ class BaseLocalModel(BaseModel):
 
         # Apply the chat template to the messages
         conversation_processed = self._apply_chat_template(messages, tools)
-        print(f"Processed conversation: {conversation_processed}")
 
         # Get the input blocks and their encodings
         input_blocks, encoding = self._get_input_blocks_and_encodings([conversation_processed])
         # Input_blocks is a list of lists, where each inner list contains tuples of (block_start[included], block_end[included])
-        print(f"Input blocks: {input_blocks}")
 
         # Generate the model's response
-        print(f"Configuring model with local configuration: {self.config.get_local_configuration(include_model=False)}")
         outputs = self.model.generate(**encoding, **self.config.get_local_configuration(include_model=False))
         sequences = outputs.sequences  # (batch_size, total_sequence_length)
         gradients = outputs.gradients
@@ -269,11 +265,9 @@ class BaseLocalModel(BaseModel):
             input_blocks=input_blocks,
             embedings=embedings,
         )
-        print(f"Connection weights: {connection_weights}")
 
         # Get the outputs from the model
         outputs = self._get_outputs(encoding, sequences)
-        print(f"Outputs: {outputs}")
 
         # Parse the outputs and check for tool calls
         reponses = list()
