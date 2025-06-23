@@ -1,5 +1,5 @@
 import json
-from typing import Any, List
+from typing import Any, List, Optional
 
 from litellm import Message
 
@@ -23,12 +23,21 @@ from .base_agent_system import BaseAgentSystem
 
 
 class BaseAgent(BaseAgentSystem):
-    def __init__(self, system_name: str, environment: BaseEnvironment, prompt: str, model_config: ModelConfig, maximum_loops: int = 5, log_name: str = ""):
+    def __init__(
+            self,
+            system_name: str,
+            environment: BaseEnvironment,
+            prompt: str,
+            model_config: ModelConfig,
+            tools: Optional[List[str]] = None,
+            maximum_loops: int = 5,
+            log_name: str = "",
+        ):
         self.prompt = prompt
         self.model_config = model_config
         self.model = ModelFactory(self.model_config).create_model()
         self.messages = list()
-        super().__init__(system_name=system_name, environment=environment, maximum_loops=maximum_loops, log_name=log_name)
+        super().__init__(system_name=system_name, environment=environment, maximum_loops=maximum_loops, log_name=log_name, tools=tools)
         self.messages_initialization()
         self.logger.debug(f"Available tools: {self.tool_descriptions}")
 
@@ -146,7 +155,7 @@ class BaseAgent(BaseAgentSystem):
                             tool_result_dict["note"],
                             connections=output_note_info,
                             weights=1.0,
-                            sdubject=self.system_name
+                            subject=self.system_name
                         )
                         terminate = True
                     else:
@@ -176,8 +185,8 @@ class BaseAgent(BaseAgentSystem):
                     })
             else:
                 output_note_info = OUTPUT_NOTE_INFO.format(
-                    output = output_message.content or EMPTY_PLACEHOLDER,
-                    note = EMPTY_PLACEHOLDER
+                    output = EMPTY_PLACEHOLDER,
+                    note = NOTE_NO_ACTION.format(output = output_message.content or EMPTY_PLACEHOLDER)
                 )
                 output_note_info = GBC(
                     output_note_info,

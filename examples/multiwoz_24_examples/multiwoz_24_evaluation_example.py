@@ -181,7 +181,12 @@ You are given the dialogue history and the current dialogue state. You need to q
 
 class Multiwoz24System(BaseAgentSystem):
     def __init__(self, system_name: str, environment: Multiwoz24Environment, maximum_loops: int = 5, log_name: str = ""):
-        super().__init__(system_name, environment, maximum_loops, log_name)
+        super().__init__(
+            system_name=system_name,
+            environment=environment, 
+            maximum_loops=maximum_loops,
+            log_name=log_name
+        )
         StateAgent = BaseAgent(
             system_name="state_agent",
             environment=environment,

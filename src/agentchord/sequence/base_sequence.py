@@ -33,6 +33,8 @@ class BaseSequence(list):
         self.next_subsystem_idx = self.index(name)
 
     def update_next_subsystem(self):
+        if self.next_subsystem_idx == len(self) - 1:
+            self.set_done()
         self.next_subsystem_idx = (self.next_subsystem_idx + 1) % len(self)
         self.next_subsystem_name = self[self.next_subsystem_idx]
 

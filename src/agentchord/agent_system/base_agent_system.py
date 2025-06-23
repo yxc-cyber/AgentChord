@@ -1,4 +1,4 @@
-from typing import Any, Callable, Self
+from typing import Any, Callable, List, Optional, Self
 
 from ..environment import BaseEnvironment, InnerEnvironment
 from ..metadata import BaseMetaData
@@ -7,7 +7,14 @@ from ..utils import Action, Logger
 
 
 class BaseAgentSystem:
-    def __init__(self, system_name: str, environment: BaseEnvironment, maximum_loops: int = 50, log_name: str = ""):
+    def __init__(
+            self,
+            system_name: str,
+            environment: BaseEnvironment,
+            tools: Optional[List[str]] = None,
+            maximum_loops: int = 50,
+            log_name: str = "",
+        ):
         self.subsystems = dict()
         self.on_start_actions = dict()
         self.on_completion_actions = dict()
@@ -17,6 +24,7 @@ class BaseAgentSystem:
         self.log_name = log_name
         self.logger = Logger(self.system_name, self.log_name)
         self.parent_number = 0
+        self.tools = tools
         self.tool_descriptions = None
         self.environment = None
         self.inner_environment = None
@@ -24,24 +32,26 @@ class BaseAgentSystem:
         self.set_inner_environment(InnerEnvironment())
 
     def execution_loop(self, meta_data: BaseMetaData, loop: bool = False) -> BaseMetaData:
-        self.subsystem_sequence.set_not_done()
         loop_counter = 0
-        while not self.subsystem_sequence.is_done() and loop_counter < self.maximum_loops:
-            # Move subsystem sequence forward.
-            current_subsystem_name = self.subsystem_sequence.get_current_subsystem_name()
-            self.subsystem_sequence.update_next_subsystem()
-            # Trigger on-start events
-            if current_subsystem_name in self.on_start_actions:
-                meta_data = self.on_start_actions[current_subsystem_name](meta_data)
-            # Trigger child completion event
-            self.subsystems[current_subsystem_name].execution_loop(meta_data)
-            # Trigger on-completion event
-            if current_subsystem_name in self.on_completion_actions:
-                meta_data = self.on_completion_actions[current_subsystem_name](meta_data)
-            if self.environment.is_done():
-                self.subsystem_sequence.set_done()
-            # Only the root system controls the loop.
-            if self.parent_number > 0 or not loop:
+        while loop_counter < self.maximum_loops:
+            self.subsystem_sequence.set_not_done()
+            while not self.subsystem_sequence.is_done():
+                # Move subsystem sequence forward
+                current_subsystem_name = self.subsystem_sequence.get_current_subsystem_name()
+                self.subsystem_sequence.update_next_subsystem()
+                # Trigger on-start events
+                if current_subsystem_name in self.on_start_actions:
+                    meta_data = self.on_start_actions[current_subsystem_name](meta_data)
+                # Trigger child completion event
+                meta_data = self.subsystems[current_subsystem_name].execution_loop(meta_data)
+                # Trigger on-completion event
+                if current_subsystem_name in self.on_completion_actions:
+                    meta_data = self.on_completion_actions[current_subsystem_name](meta_data)
+                # Early termination if the environment is done
+                if self.environment.is_done():
+                    self.subsystem_sequence.set_done()
+            # Only the root system controls the looping
+            if self.parent_number > 0 or not loop or self.environment.is_done():
                 break
             loop_counter += 1
         return meta_data
@@ -69,14 +79,25 @@ class BaseAgentSystem:
             subsystem.set_inner_environment(inner_environment)
 
     def set_tool_descriptions(self):
+        if self.tools is not None and self.environment is not None and not set(self.tools).issubset(set(self.environment.get_tool_descriptions().keys())):
+            raise Exception(
+                f"""Tools {", ".join(set(self.tools).difference(set(self.environment.get_tool_descriptions().keys())))} are not registered in the environment!"""
+                f""" Available tools are {", ".join(self.environment.get_tool_descriptions().keys())}."""
+            )
         if self.environment and self.environment.get_tool_descriptions() and self.inner_environment and self.inner_environment.get_tool_descriptions():
-            environment_tool_names = set(self.environment.get_tool_descriptions().keys())
+            if self.tools is not None:
+                environment_tool_names = set(self.tools)
+            else:
+                environment_tool_names = set(self.environment.get_tool_descriptions().keys())
             inner_environment_tool_names = set(self.inner_environment.get_tool_descriptions().keys())
             common_tool_names = environment_tool_names.intersection(inner_environment_tool_names)
             if common_tool_names:
                 raise Exception(f"""Tool names {", ".join(common_tool_names)} are duplicated!""")
         if self.environment and self.environment.get_tool_descriptions():
-            self.tool_descriptions = list(self.environment.get_tool_descriptions().values())
+            if self.tools is not None:
+                self.tool_descriptions = [self.environment.get_tool_descriptions()[tool_name] for tool_name in self.tools]
+            else:
+                self.tool_descriptions = list(self.environment.get_tool_descriptions().values())
             if self.inner_environment and self.inner_environment.get_tool_descriptions():
                 self.tool_descriptions.extend(list(self.inner_environment.get_tool_descriptions().values()))
         elif self.inner_environment and self.inner_environment.get_tool_descriptions():

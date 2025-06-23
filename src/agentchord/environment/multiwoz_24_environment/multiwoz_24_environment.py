@@ -1,7 +1,7 @@
 import json
 import os
 import random
-from typing import Iterator, Optional, Tuple, Self
+from typing import Iterator, Optional, Self, Tuple
 
 from fuzzywuzzy import fuzz
 
@@ -495,8 +495,10 @@ class Multiwoz24Environment(BaseEnvironment):
             arriveBy = arriveBy,
             leaveAt = leaveAt,
         )
+        booking_result = json.loads(booking_result)
         if booking_result["result"]:
             entity = random.choice(database["taxi"])
             booking_result["result"]["phone"] = entity["phone"]
             booking_result["result"]["type"] = entity["type"]
+        booking_result = json.dumps(booking_result)
         return booking_result
