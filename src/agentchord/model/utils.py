@@ -91,24 +91,68 @@ class Message(Message):
             self._gbc_tool_calls = None
 
 
+
 # Json parsing utilities
 def parse_json_string(json_string: str) -> Optional[Union[dict, list]]:
     """
     Parse a JSON string and return the corresponding Python object.
     """
     import json
-    try:
-        return json.loads(json_string)
-    except json.JSONDecodeError as e:
-        import re
+    import re
+    def sanitize_invalid_escapes(s):
+        # Replace \' with '
+        s = re.sub(r"\\'", "'", s)
+        # Replace all other invalid backslash escapes (except valid ones)
+        s = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', s)
+        return s
+    json_string = sanitize_invalid_escapes(json_string)
+    def extract_from_markdown(json_string: str) -> str:
+        """
+        Extract JSON content from markdown format.
+        """
         json_format = re.compile(r"```(json)?(.*)```", re.DOTALL)
         match = json_format.match(json_string)
         if match:
-            json_content = match.group(2).strip()
-            return json.loads(json_content)
-        else:
-            return None
+            return match.group(2).strip()
+        return json_string
+    json_string = extract_from_markdown(json_string)
+
+    objects = list()
+    start_idx = 0
+    while start_idx < len(json_string):
+        while start_idx < len(json_string) and json_string[start_idx] != '{' and json_string[start_idx] != '[':
+            start_idx += 1
+        if start_idx >= len(json_string):
+            break
+        try:
+            obj, end_idx = json.JSONDecoder().raw_decode(json_string, idx=start_idx)
+            objects.append(obj)
+            start_idx = end_idx
+        except json.JSONDecodeError:
+            # If we can't decode, it might be due to multiple JSON objects or invalid format
+            break
+    if len(objects) == 1:
+        return objects[0]
+    elif len(objects) > 1:
+        return objects
+    else:
+        return None
         
+
+# Sanitize the output string by removing unwanted characters
+def sanitize_output_string(output: str) -> str:
+    """
+    Clean the output string by removing unwanted characters.
+    """
+    import re
+
+    # Remove leading/trailing whitespace and newlines
+    cleaned = output.strip()
+    # Remove <output> tags if present
+    cleaned = re.sub(r"<\/?output>", "", cleaned)
+    cleaned = cleaned.strip()
+    return cleaned
+
 
 # Singleton metaclass for ensuring a single instance of a class
 class SingletonMeta(type):

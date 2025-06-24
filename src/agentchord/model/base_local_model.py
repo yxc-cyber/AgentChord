@@ -32,6 +32,7 @@ from .utils import (
     SUM_SQUARES,
     Message,
     SingletonMeta,
+    sanitize_output_string,
 )
 
 
@@ -307,6 +308,7 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
 
         # Get the outputs from the model
         outputs = self._get_outputs(encoding, sequences)
+        outputs = [sanitize_output_string(output) for output in outputs]
 
         # Parse the outputs and check for tool calls
         reponses = list()

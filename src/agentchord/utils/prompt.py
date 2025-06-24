@@ -38,6 +38,17 @@ OUTPUT_NOTE_INFO = """
 """.strip()
 
 TOOL_INFO = """
+# Tool Name
+<tool_name>
+{tool_name}
+</tool_name>
+# Tool Parameters
+<tool_parameters>
+{tool_parameters}
+</tool_parameters>
+"""
+
+TOOL_RESULT_INFO = """
 # Tool Result
 <tool_result>
 {tool_result}

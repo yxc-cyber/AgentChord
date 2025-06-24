@@ -9,7 +9,9 @@ class GBCBase:
             weights = [weights]
         if connections and not weights:
             weights = [1.0] * len(connections)
-        assert len(connections) == len(weights), "Connections and weights must have the same length."
+        assert len(connections) == len(weights),\
+            f"Connections and weights must have the same length. Self: {self}, Connections: {connections}, Weights: {weights}"
+            
         self.connections = connections
         self.weights = weights
 

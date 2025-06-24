@@ -18,6 +18,7 @@ from ..utils import (
     TOOL_FOOTER,
     TOOL_HEADER,
     TOOL_INFO,
+    TOOL_RESULT_INFO,
 )
 from .base_agent_system import BaseAgentSystem
 
@@ -128,12 +129,14 @@ class BaseAgent(BaseAgentSystem):
             self.logger.debug(f"New message: {output_message.json()}")
             self.messages.append(output_message.json())
             if output_message.tool_calls:
+                temp_connection_pool = list()
                 for tool_call in output_message.tool_calls:
                     tool_call_id = tool_call.id
-                    tool_name = tool_call.function.name
-                    tool_arguments = json.loads(tool_call.function.arguments)
+                    tool_name = tool_call.function.name.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, "")
+                    tool_arguments = json.loads(tool_call.function.arguments.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, ""))
                     if tool_name == self.inner_environment.TERMINATE:
                         tool_result = self.inner_environment.apply_tool(tool_name, tool_arguments)
+                        self.logger.debug(f"Tool result: {tool_result}")
                         tool_result_dict = json.loads(tool_result)
                         output_note_info = OUTPUT_NOTE_INFO.format(
                             output = tool_result_dict["output"] or EMPTY_PLACEHOLDER,
@@ -160,16 +163,28 @@ class BaseAgent(BaseAgentSystem):
                         terminate = True
                     else:
                         tool_result = self.environment.apply_tool(tool_name, tool_arguments)
+                        self.logger.debug(f"Tool result: {tool_result}")
                         meta_data.tool.append({"tool_name": tool_name, "tool_arguments": tool_arguments, "tool_result": tool_result})
                     
-                    tool_info = TOOL_INFO.format(tool_result = tool_result or EMPTY_PLACEHOLDER)
+                    tool_info = TOOL_INFO.format(
+                        tool_name = tool_name or EMPTY_PLACEHOLDER,
+                        tool_parameters = json.dumps(tool_arguments, indent=2) or EMPTY_PLACEHOLDER
+                    )
                     tool_info = GBC(
                         tool_info,
                         connections=output_message.gbc_tool_calls.get_connections(),
                         weights=output_message.gbc_tool_calls.get_weights(),
                         subject=self.system_name
                     )
-                    connection_pool.append(tool_info)
+
+                    tool_result_info = TOOL_RESULT_INFO.format(tool_result = tool_result or EMPTY_PLACEHOLDER)
+                    tool_result_info = GBC(
+                        tool_result_info,
+                        connections=tool_info,
+                        weights=1.0,
+                        subject=self.system_name
+                    )
+                    temp_connection_pool.append(tool_result_info)
                     tool_result = f"{TOOL_HEADER}{tool_result}{TOOL_FOOTER}"
                     tool_result = GBC(
                         tool_result,
@@ -183,7 +198,9 @@ class BaseAgent(BaseAgentSystem):
                         "name": tool_name,
                         "content":tool_result
                     })
+                connection_pool.extend(temp_connection_pool)
             else:
+                output_message.content = output_message.content.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, "")
                 output_note_info = OUTPUT_NOTE_INFO.format(
                     output = EMPTY_PLACEHOLDER,
                     note = NOTE_NO_ACTION.format(output = output_message.content or EMPTY_PLACEHOLDER)

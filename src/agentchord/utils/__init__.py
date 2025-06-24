@@ -11,4 +11,5 @@ from .prompt import (
     TOOL_FOOTER,
     TOOL_HEADER,
     TOOL_INFO,
+    TOOL_RESULT_INFO,
 )

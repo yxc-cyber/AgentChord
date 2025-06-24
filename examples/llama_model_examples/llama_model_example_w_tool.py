@@ -67,7 +67,7 @@ text4 = GBC(
     weights=[1.0, 1.0, 1.0],
 )
 tool_result = GBC(
-    value = f"{TOOL_HEADER}Isolated thunderstorms throughout the day{TOOL_FOOTER}",
+    value = f"{TOOL_HEADER}Isolated thunderstorms throughout the day. Please use the response tool now.{TOOL_FOOTER}",
     connections=[
         txt1,
         txt2,
