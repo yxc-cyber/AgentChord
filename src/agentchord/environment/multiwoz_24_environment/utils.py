@@ -5,7 +5,9 @@ import re
 import string
 
 # Path
-ENV_PATH = "src/agentchord/environment/multiwoz_24_environment"
+ENV_PATH = os.path.dirname(os.path.abspath(__file__))  # "src/agentchord/environment/multiwoz_24_environment"
+DATA_PATH = os.path.join(ENV_PATH, "MultiWOZ2.4")  # Path to the MultiWOZ 2.4 dataset
+REPO_URL = "https://github.com/smartyfh/MultiWOZ2.4.git"
 
 # Constants for the MultiWOZ 2.4 environment
 CLEAN_DOMAINS = ["hotel", "restaurant", "attraction", "train", "taxi"]

@@ -4,6 +4,7 @@ import random
 from typing import Iterator, List, Optional, Self, Tuple
 
 from fuzzywuzzy import fuzz
+from git import Repo
 
 from ...metadata import MultiWOZ24MetaData
 from ..base_environment import BaseEnvironment
@@ -21,16 +22,33 @@ from .tool_descriptions import (
 from .utils import (
     ARRIVAL_TIME_KEY,
     CLEAN_DOMAINS,
+    DATA_PATH,
     DEPARTURE_TIME_KEY,
     DOMAIN_FINITE_KEYS,
     ENV_PATH,
     FUZZY_KEYS,
     PRIMARY_KEYS,
+    REPO_URL,
     delexicalize,
     generate_reference_number,
     prepareSlotValuesIndependent,
     time_str_to_minutes,
 )
+
+# Check if the MultiWOZ 2.4 dataset is already cloned, if not, clone it
+if not os.path.exists(DATA_PATH):
+    Repo.clone_from(REPO_URL, DATA_PATH)
+    print(f"Repository cloned to {DATA_PATH}")
+    # Change the current working directory to the cloned repository
+    original_dir = os.getcwd()
+    os.chdir(DATA_PATH)
+    print(f"Changed working directory to {os.getcwd()}")
+    # Now run "python3 create_data.py"
+    os.system("python3 create_data.py")
+    print("Data created successfully.")
+    # Change back to the original directory
+    os.chdir(original_dir)
+    print(f"Changed back to the original working directory: {original_dir}")
 
 # Fix the random seed for reproducibility
 random.seed(0)
