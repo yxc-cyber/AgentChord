@@ -7,17 +7,28 @@ from .utils import RESULT_TOOL_ARGS_ERROR, RESULT_TOOL_NAME_ERROR
 
 
 class BaseEnvironment:
-    evaluation_record = BaseMetaData()
+    evaluation_record = dict()
+    pre_initialized = False
+
+    @classmethod
+    def pre_initialize(cls):
+        """
+        Pre-initializes the environment, setting up necessary configurations or resources.
+        This method should be overridden by subclasses to provide specific pre-initialization logic.
+        """
+        if not cls.pre_initialized:
+            cls.pre_initialized = True
 
     @classmethod
     def iterate_test_cases(cls):
-        pass
+        cls.pre_initialize()
 
     @classmethod
     def evaluate_test_cases(cls):
-        pass
+        cls.pre_initialize()
 
     def __init__(self, initial_metadata: Optional[BaseMetaData] = None):
+        self.pre_initialize()
         self.tool_handlers = dict()
         self.tool_descriptions = dict()
         self.initial_metadata = initial_metadata if initial_metadata is not None else BaseMetaData()

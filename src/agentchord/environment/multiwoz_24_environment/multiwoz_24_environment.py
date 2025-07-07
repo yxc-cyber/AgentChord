@@ -35,101 +35,117 @@ from .utils import (
     time_str_to_minutes,
 )
 
-# Check if the MultiWOZ 2.4 dataset is already cloned, if not, clone it
-if not os.path.exists(DATA_PATH):
-    Repo.clone_from(REPO_URL, DATA_PATH)
-    print(f"Repository cloned to {DATA_PATH}")
-    # Change the current working directory to the cloned repository
-    original_dir = os.getcwd()
-    os.chdir(DATA_PATH)
-    print(f"Changed working directory to {os.getcwd()}")
-    # Now run "python3 create_data.py"
-    os.system("python3 create_data.py")
-    print("Data created successfully.")
-    # Change back to the original directory
-    os.chdir(original_dir)
-    print(f"Changed back to the original working directory: {original_dir}")
-
-# Fix the random seed for reproducibility
-random.seed(0)
-
-# Load the database
-database = dict()
-for domain in CLEAN_DOMAINS:
-    with open(os.path.join(ENV_PATH, "MultiWOZ2.4/data/mwz24/MULTIWOZ2.4", f"{domain}_db.json"), "r") as f:
-        if domain != "taxi":
-            database[domain] = json.load(f)
-        else:
-            db_str = f.read()
-            db_str = db_str.replace("]\n ", "],\n ").replace("\'", "\"").replace(" :", ":").replace("[\n ", "{\n ")[:-2]+"}"
-            db_dict = json.loads(db_str)
-            db_raw_keys = ["taxi_colors", "taxi_types", "taxi_phone"]
-            database[domain] = list()
-            number_pool = set()
-            for color in db_dict[db_raw_keys[0]]:
-                for type in db_dict[db_raw_keys[1]]:
-                    for _ in range(10):
-                        # Make sure the phone numbers are unique
-                        phone = "".join(random.choices("0123456789", k=10))
-                        while phone in number_pool:
-                            phone = "".join(random.choices("0123456789", k=10))
-                        number_pool.add(phone)
-                        database[domain].append({"type": f"{color} {type}", "phone": phone})
-
-# Prepare the delexicalization map
-delexicalization_map = prepareSlotValuesIndependent(database)
-
-# Load the dialogues
-dialogues = dict()
-with open(os.path.join(ENV_PATH, "MultiWOZ2.4/data/mwz2.4", "test_dials.json"), "r") as f:
-    dialogues["test"] = json.load(f)
-with open(os.path.join(ENV_PATH, "MultiWOZ2.4/data/mwz2.4", "train_dials.json"), "r") as f:
-    dialogues["train"] = json.load(f)
-with open(os.path.join(ENV_PATH, "MultiWOZ2.4/data/mwz2.4", "dev_dials.json"), "r") as f:
-    dialogues["dev"] = json.load(f)
-domains_indices, processed_dialogues = dict(), dict()
-for mode, data in dialogues.items():
-    for dialogue_content in data:
-        valid = True
-        for domain in dialogue_content["domains"]:
-            if domain in CLEAN_DOMAINS:
-                if mode not in domains_indices:
-                    domains_indices[mode] = {domain: list() for domain in CLEAN_DOMAINS}
-                domains_indices[mode][domain].append(dialogue_content["dialogue_idx"])
-            else:
-                valid = False
-        if valid:
-            if mode not in processed_dialogues:
-                processed_dialogues[mode] = dict()
-            processed_dialogues[mode][dialogue_content["dialogue_idx"]] = dialogue_content
-
-# Load the goals
-goals = dict()
-with open(os.path.join(ENV_PATH, "goals.json"), "r") as f:
-    goals_raw = json.load(f)
-for dialogue_idx, dialogue_content in goals_raw.items():
-    goals[dialogue_idx.upper()+".json"] = dialogue_content
-
-# Load the booked domains
-booked_domains = dict()
-with open(os.path.join(ENV_PATH, "booked_domains.json"), "r") as f:
-    booked_domains_raw = json.load(f)
-for dialogue_idx, dialogue_content in booked_domains_raw.items():
-    booked_domains[dialogue_idx.upper()+".json"] = dialogue_content
 
 class Multiwoz24Environment(BaseEnvironment):
-    database = database
-    dialogues = processed_dialogues
-    domains_indices = domains_indices
     evaluation_record = dict()
 
     @classmethod
+    def pre_initialize(cls):
+        """
+        Pre-initializes the Multiwoz24Environment, setting up necessary configurations or resources.
+        This method should be called before using the environment to ensure it is ready for use.
+        """
+        if not cls.pre_initialized:
+            # Check if the MultiWOZ 2.4 dataset is already cloned, if not, clone it
+            if not os.path.exists(DATA_PATH):
+                Repo.clone_from(REPO_URL, DATA_PATH)
+                print(f"Repository cloned to {DATA_PATH}")
+                # Change the current working directory to the cloned repository
+                original_dir = os.getcwd()
+                os.chdir(DATA_PATH)
+                print(f"Changed working directory to {os.getcwd()}")
+                # Now run "python3 create_data.py"
+                os.system("python3 create_data.py")
+                print("Data created successfully.")
+                # Change back to the original directory
+                os.chdir(original_dir)
+                print(f"Changed back to the original working directory: {original_dir}")
+            
+            # Fix the random seed for reproducibility
+            random.seed(0)
+
+            # Load the database
+            database = dict()
+            for domain in CLEAN_DOMAINS:
+                with open(os.path.join(ENV_PATH, "MultiWOZ2.4/data/mwz24/MULTIWOZ2.4", f"{domain}_db.json"), "r") as f:
+                    if domain != "taxi":
+                        database[domain] = json.load(f)
+                    else:
+                        db_str = f.read()
+                        db_str = db_str.replace("]\n ", "],\n ").replace("\'", "\"").replace(" :", ":").replace("[\n ", "{\n ")[:-2]+"}"
+                        db_dict = json.loads(db_str)
+                        db_raw_keys = ["taxi_colors", "taxi_types", "taxi_phone"]
+                        database[domain] = list()
+                        number_pool = set()
+                        for color in db_dict[db_raw_keys[0]]:
+                            for type in db_dict[db_raw_keys[1]]:
+                                for _ in range(10):
+                                    # Make sure the phone numbers are unique
+                                    phone = "".join(random.choices("0123456789", k=10))
+                                    while phone in number_pool:
+                                        phone = "".join(random.choices("0123456789", k=10))
+                                    number_pool.add(phone)
+                                    database[domain].append({"type": f"{color} {type}", "phone": phone})
+
+            # Prepare the delexicalization map
+            delexicalization_map = prepareSlotValuesIndependent(database)
+
+            # Load the dialogues
+            dialogues = dict()
+            with open(os.path.join(ENV_PATH, "MultiWOZ2.4/data/mwz2.4", "test_dials.json"), "r") as f:
+                dialogues["test"] = json.load(f)
+            with open(os.path.join(ENV_PATH, "MultiWOZ2.4/data/mwz2.4", "train_dials.json"), "r") as f:
+                dialogues["train"] = json.load(f)
+            with open(os.path.join(ENV_PATH, "MultiWOZ2.4/data/mwz2.4", "dev_dials.json"), "r") as f:
+                dialogues["dev"] = json.load(f)
+            domains_indices, processed_dialogues = dict(), dict()
+            for mode, data in dialogues.items():
+                for dialogue_content in data:
+                    valid = True
+                    for domain in dialogue_content["domains"]:
+                        if domain in CLEAN_DOMAINS:
+                            if mode not in domains_indices:
+                                domains_indices[mode] = {domain: list() for domain in CLEAN_DOMAINS}
+                            domains_indices[mode][domain].append(dialogue_content["dialogue_idx"])
+                        else:
+                            valid = False
+                    if valid:
+                        if mode not in processed_dialogues:
+                            processed_dialogues[mode] = dict()
+                        processed_dialogues[mode][dialogue_content["dialogue_idx"]] = dialogue_content
+
+            # Load the goals
+            goals = dict()
+            with open(os.path.join(ENV_PATH, "goals.json"), "r") as f:
+                goals_raw = json.load(f)
+            for dialogue_idx, dialogue_content in goals_raw.items():
+                goals[dialogue_idx.upper()+".json"] = dialogue_content
+
+            # Load the booked domains
+            booked_domains = dict()
+            with open(os.path.join(ENV_PATH, "booked_domains.json"), "r") as f:
+                booked_domains_raw = json.load(f)
+            for dialogue_idx, dialogue_content in booked_domains_raw.items():
+                booked_domains[dialogue_idx.upper()+".json"] = dialogue_content
+
+            # Store the loaded data in the class attributes
+            cls.database = database
+            cls.delexicalization_map = delexicalization_map
+            cls.domains_indices = domains_indices
+            cls.dialogues = processed_dialogues
+            cls.goals = goals
+            cls.booked_domains = booked_domains
+            cls.pre_initialized = True
+
+    @classmethod
     def iterate_test_cases(cls, mode: str) -> Iterator[Self]:
+        cls.pre_initialize()
         for dialogue_idx in cls.dialogues[mode]:
             yield cls(mode=mode, dialogue_idx=dialogue_idx)
 
     @classmethod
     def evaluate_test_cases(cls, mode: str, dialogue_indices: Optional[List[str]] = None) -> MultiWOZ24MetaData:
+        cls.pre_initialize()
         matched_turns, true_positive, false_positive, false_negative, total_turns = 0.0, 0.0, 0.0, 0.0, 0.0
         total_inform, total_success, total_dialogues = 0.0, 0.0, 0.0
         for dialogue_idx, dialogue_eval_record in cls.evaluation_record[mode].items():
@@ -249,8 +265,8 @@ class Multiwoz24Environment(BaseEnvironment):
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].slot_precision = self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].true_positive / (self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].true_positive + self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].false_positive + 1e-10)
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].slot_f1 = 2 * self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].slot_precision * self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].slot_recall / (self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].slot_precision + self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].slot_recall + 1e-10)
         # Compute the system response accuracy
-        delexicalized_system_response = delexicalize(system_response, delexicalization_map, tool_usage)
-        goal = goals[self.dialogue_idx]
+        delexicalized_system_response = delexicalize(system_response, self.delexicalization_map, tool_usage)
+        goal = self.goals[self.dialogue_idx]
         inform, success, success_detail = self.compute_success(delexicalized_system_response, tool_usage, goal)
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].delixicalized_system_response = delexicalized_system_response
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].inform = inform
@@ -298,7 +314,7 @@ class Multiwoz24Environment(BaseEnvironment):
         requestable_slots_in_goal = {domain : set(goal[domain]["requestable"]) for domain in goal}
         offered_venues = {domain : list() for domain in goal}
         provided_requestable_slots = {domain : set() for domain in goal}
-        booked_domain = booked_domains[self.dialogue_idx][self.turn_idx]
+        booked_domain = self.booked_domains[self.dialogue_idx][self.turn_idx]
         # Find offered venues and provided requestable slots in system utterances
         for current_domain in goal:
             # In order to calculate the INFORM metric, we look at the NAME and TRAINID spans because these are the only
@@ -380,7 +396,7 @@ class Multiwoz24Environment(BaseEnvironment):
 
     def _query_basic(self, domain: str, max_retrieval: int = 10, **query) -> str:
         valid_items = []
-        for database_item in database[domain]:
+        for database_item in self.database[domain]:
             valid = True
             for query_key, query_value in query.items():
                 database_value = database_item.get(query_key, None)
@@ -477,7 +493,7 @@ class Multiwoz24Environment(BaseEnvironment):
         if primary_key is None and (other_keys is None or set(other_keys).issubset(set(query.keys()))):
             found = True
         elif primary_key in query.keys() and (other_keys is None or set(other_keys).issubset(set(query.keys()))):
-            for database_item in database[domain]:
+            for database_item in self.database[domain]:
                 database_value = database_item.get(primary_key, None)
                 query_value = query[primary_key]
                 if (primary_key in FUZZY_KEYS[domain]) and (fuzz.partial_ratio(database_value, query_value) >= self.fuzzy_ratio) or (fuzz.partial_ratio(query_value, database_value) >= self.fuzzy_ratio):
@@ -549,7 +565,7 @@ class Multiwoz24Environment(BaseEnvironment):
         )
         booking_result = json.loads(booking_result)
         if booking_result["result"]:
-            entity = random.choice(database["taxi"])
+            entity = random.choice(self.database["taxi"])
             booking_result["result"]["phone"] = entity["phone"]
             booking_result["result"]["type"] = entity["type"]
         booking_result = json.dumps(booking_result)
