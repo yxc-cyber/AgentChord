@@ -1,7 +1,7 @@
 import json
 import os
 import random
-from typing import Iterator, Optional, Self, Tuple
+from typing import Iterator, List, Optional, Self, Tuple
 
 from fuzzywuzzy import fuzz
 
@@ -111,10 +111,14 @@ class Multiwoz24Environment(BaseEnvironment):
             yield cls(mode=mode, dialogue_idx=dialogue_idx)
 
     @classmethod
-    def evaluate_test_cases(cls, mode: str) -> MultiWOZ24MetaData:
+    def evaluate_test_cases(cls, mode: str, dialogue_indices: Optional[List[str]] = None) -> MultiWOZ24MetaData:
         matched_turns, true_positive, false_positive, false_negative, total_turns = 0.0, 0.0, 0.0, 0.0, 0.0
+        total_inform, total_success, total_dialogues = 0.0, 0.0, 0.0
         for dialogue_idx, dialogue_eval_record in cls.evaluation_record[mode].items():
-            inform, success = dict(), dict()
+            if dialogue_indices is not None and dialogue_idx not in dialogue_indices:
+                continue
+            inform, success = {"total": 0.0}, {"total": 0.0}
+            requested_slots, provided_slots = dict(),  dict()
             for turn_idx, turn_eval_record in dialogue_eval_record.items():
                 matched_turns += turn_eval_record.matched_turns
                 true_positive += turn_eval_record.true_positive
@@ -122,20 +126,33 @@ class Multiwoz24Environment(BaseEnvironment):
                 false_negative += turn_eval_record.false_negative
                 total_turns += turn_eval_record.total_turns
                 for domain, domain_inform in turn_eval_record.inform.items():
+                    if domain not in inform:
+                        inform[domain] = 0.0
                     if domain != "total" and domain_inform > 0.0:
                         inform[domain] = domain_inform
-                inform["total"] = float(sum(inform.values()) == len(inform.keys()))
-                if inform["total"]:
-                    for domain, domain_success in turn_eval_record.success.items():
-                        if domain != "total" and domain_success > 0.0:
-                            success[domain] = domain_success
-                    success["total"] = float(sum(success.values()) == len(success.keys()))
-                else:
-                    success["total"] = 0.0
+                inform["total"] = float(sum(inform.values()) >= len(inform.keys())-1)  # Exclude the "total" key from the count
+                for domain, domain_success_detail in turn_eval_record.success_detail.items():
+                    if domain not in requested_slots:
+                        requested_slots[domain] = set()
+                    if domain not in provided_slots:
+                        provided_slots[domain] = set()
+                    requested_slots[domain].update(domain_success_detail["requested"])
+                    provided_slots[domain].update(domain_success_detail["provided"])
+            if inform["total"]:
+                for domain in turn_eval_record.success_detail.keys():
+                    success[domain] = float(len(requested_slots[domain]) == len(provided_slots[domain]))
+                success["total"] = float(sum(success.values()) >= len(success.keys())-1)  # Exclude the "total" key from the count
+            else:
+                success["total"] = 0.0
+            total_inform += inform["total"]
+            total_success += success["total"]
+            total_dialogues += 1.0
         joint_goal_accuracy = matched_turns / (total_turns + 1e-10)
         slot_recall = true_positive / (true_positive + false_negative + 1e-10)
         slot_precision = true_positive / (true_positive + false_positive + 1e-10)
         slot_f1 = 2 * slot_precision * slot_recall / (slot_precision + slot_recall + 1e-10)
+        inform = total_inform / (total_dialogues + 1e-10)
+        success = total_success / (total_dialogues + 1e-10)
         return MultiWOZ24MetaData(
             matched_turns=matched_turns,
             total_turns=total_turns,
@@ -151,6 +168,9 @@ class Multiwoz24Environment(BaseEnvironment):
         )
 
     def __init__(self, mode: str = "test", dialogue_idx: str = "", turn_idx: int = 0, fuzzy_ratio: int = 80):
+        from ...agent_system import Input
+        from ...gbc_object import GBC
+
         super().__init__()
         if not dialogue_idx:
             dialogue_idx = list(self.dialogues[mode].keys())[0]
@@ -167,8 +187,15 @@ class Multiwoz24Environment(BaseEnvironment):
         self.register_tool(BOOK_TRAIN_DESCRIPTION["function"]["name"], BOOK_TRAIN_DESCRIPTION, self._book_train)
         self.register_tool(BOOK_TAXI_DESCRIPTION["function"]["name"], BOOK_TAXI_DESCRIPTION, self._book_taxi)
         self.grounding_utterance = self.prepare_grounding_utterance()
+        self.grounding_utterance = GBC(self.grounding_utterance, subject=Input())
         self.target_utterance = self.dialogues[self.mode][self.dialogue_idx]["dialogue"][self.turn_idx+1]["system_transcript"]
-        self.set_initial_metadata(MultiWOZ24MetaData(input=self.grounding_utterance, grounding_utterance=self.grounding_utterance))
+        ground_truth_raw = self.dialogues[self.mode][self.dialogue_idx]["dialogue"][self.turn_idx]["belief_state"]
+        ground_truth_dialogue_state = dict()
+        for ground_truth in ground_truth_raw:
+            ground_truth_dialogue_state[ground_truth["slots"][0][0]] = ground_truth["slots"][0][1]
+        ground_truth_dialogue_state = normalize_data(ground_truth_dialogue_state, type="state")
+        self.groundtruth_dialogue_state = ground_truth_dialogue_state
+        self.set_initial_metadata(MultiWOZ24MetaData(input=self.grounding_utterance, grounding_utterance=self.grounding_utterance, groundtruth_dialogue_state=self.groundtruth_dialogue_state))
 
     def prepare_grounding_utterance(self) -> str:
         grounding_utterance = list()
@@ -188,6 +215,8 @@ class Multiwoz24Environment(BaseEnvironment):
         dialogue_state = metadata.dialogue_state
         system_response = metadata.system_response
         tool_usage = metadata.tool
+        self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].grounding_utterance = metadata.grounding_utterance
+        self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].groundtruth_dialogue_state = metadata.groundtruth_dialogue_state
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].dialogue_state = dialogue_state
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].system_response = system_response
         # Compute the dialogue state accuracy
@@ -204,16 +233,17 @@ class Multiwoz24Environment(BaseEnvironment):
         # Compute the system response accuracy
         delexicalized_system_response = delexicalize(system_response, delexicalization_map, tool_usage)
         goal = goals[self.dialogue_idx]
-        inform, success = self.compute_success(delexicalized_system_response, tool_usage, goal)
+        inform, success, success_detail = self.compute_success(delexicalized_system_response, tool_usage, goal)
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].delixicalized_system_response = delexicalized_system_response
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].inform = inform
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].success = success
+        self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].success_detail = success_detail
         return self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx]
         
     def init_evaluation_record(self):
         if self.mode not in self.evaluation_record:
             self.evaluation_record[self.mode] = dict()
-        if self.dialogue_idx not in self.evaluation_record:
+        if self.dialogue_idx not in self.evaluation_record[self.mode]:
             self.evaluation_record[self.mode][self.dialogue_idx] = dict()
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx] = MultiWOZ24MetaData()
 
@@ -221,12 +251,7 @@ class Multiwoz24Environment(BaseEnvironment):
     # https://github.com/uiuc-conversational-ai-lab/multiwoz-helper/blob/main/mwzeval/metrics.py#L265
     def compute_dst(self, dialogue_state: dict) -> Tuple[float, float, float, float]:
         true_positive, false_negative, false_positive = 0.0, 0.0, 0.0
-        ground_truth_raw = self.dialogues[self.mode][self.dialogue_idx]["dialogue"][self.turn_idx]["belief_state"]
-        ground_truth_dialogue_state = dict()
-        for ground_truth in ground_truth_raw:
-            ground_truth_dialogue_state[ground_truth["slots"][0][0]] = ground_truth["slots"][0][1]
-        dialogue_state = normalize_data(dialogue_state, type="state")
-        ground_truth_dialogue_state = normalize_data(ground_truth_dialogue_state, type="state")
+        ground_truth_dialogue_state = self.groundtruth_dialogue_state
         for dialogue_state_slot, dialogue_state_value in dialogue_state.items():
             if dialogue_state_slot in ground_truth_dialogue_state:
                 domain, slot = dialogue_state_slot.split("-")
@@ -304,6 +329,11 @@ class Multiwoz24Environment(BaseEnvironment):
             elif domain in ["restaurant", "hotel", "attraction", "train"] and len(offered_venues[domain]) > 0:
                 # Get venues from the database that match all the information provided by the user
                 goal_venues = self._query_basic(domain, **goal[domain]["informable"])
+                goal_venues = json.loads(goal_venues)
+                if "result" not in goal_venues or not goal_venues["result"]:
+                    goal_venues = []
+                else:
+                    goal_venues = goal_venues["result"]
                 if domain == "train":
                     goal_venues = [venue["trainID"] for venue in goal_venues]
                 else:
@@ -311,20 +341,24 @@ class Multiwoz24Environment(BaseEnvironment):
                 # Compare the venues that could be offered by the system and the venues that match the information
                 # in dialg goals, these two sets do not have to match exactly and there are two ways to compare them:
                 # Venues are matching if the goal venues are a super set of the possibly offered venues.
-                if set(offered_venues[domain]).issubset(set(goal_venues)):
+                offered_venues_set = set([json.dumps(venue, sort_keys=True) for venue in offered_venues[domain]])
+                goal_venues_set = set([json.dumps(venue, sort_keys=True) for venue in goal_venues])
+                if set(offered_venues_set).issubset(goal_venues_set):
                     match_domain = True
             match[domain] = float(match_domain)
         # The inform rate +1 if the goal venues are matched for all domains, otherwise 0 
         # match["total"] = float(sum(match.values()) == len(match.keys()))
         # Calculate the SUCCESS rate, either +1 or 0
         success = dict()
+        success_detail = dict()
         for domain in goal:
             # If values in sentences are super set of requestables
             provided_and_wanted_slots = provided_requestable_slots[domain] & requestable_slots_in_goal[domain]
             domain_success = len(provided_and_wanted_slots) == len(requestable_slots_in_goal[domain])
             success[domain] = float(domain_success)
+            success_detail[domain] = {"requested": requestable_slots_in_goal[domain], "provided": provided_and_wanted_slots}
         # success["total"] = float(sum(success.values()) >= len(success.keys()))
-        return match, success
+        return match, success, success_detail
 
     def _query_basic(self, domain: str, max_retrieval: int = 10, **query) -> str:
         valid_items = []

@@ -14,7 +14,7 @@ FUZZY_KEYS = {  # Useful for querying and booking
     "attraction" : ["name"],
     "restaurant" : ["name"],
     "train" : ["departure", "destination"],
-    "taxi": [],
+    "taxi": ["departure", "destination"],
 }
 PRIMARY_KEYS = {  # Useful for booking
     "hotel" : {"primary_key": "name", "other_keys": ["people", "day", "stay"]},

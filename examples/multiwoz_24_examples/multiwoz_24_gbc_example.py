@@ -5,8 +5,8 @@ import torch
 from transformers import BitsAndBytesConfig
 
 from agentchord import (
-    BaseAgent,
     BaseAgentSystem,
+    GBCAgent,
     ModelConfig,
     Multiwoz24Environment,
     MultiWOZ24MetaData,
@@ -18,7 +18,7 @@ You are a helpful agent that can retrieve dialogue states from the user.
 The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
 ```json
 {
-    "taxi-arriveBy": {
+    "taxi-arriveby": {
         "type": "string",
         "description": "The time by which the taxi should arrive in the format HH:MM."
     },
@@ -30,7 +30,7 @@ The keys are the names of the slots and the values are the values of the slots. 
         "type": "string",
         "description": "The destination location of the taxi."
     },
-    "taxi-leaveAt": {
+    "taxi-leaveat": {
         "type": "string",
         "description": "The time at which the taxi should leave in the format HH:MM."
     }
@@ -39,7 +39,7 @@ The keys are the names of the slots and the values are the values of the slots. 
 The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
 {
-    "taxi-arriveBy": "17:45",
+    "taxi-arriveby": "17:45",
     "taxi-departure": "Cambridge city center",
     "taxi-destination": "The Eagle pub"
 }
@@ -80,7 +80,7 @@ class Multiwoz24System(BaseAgentSystem):
             chat_template_path="src/agentchord/model/chat_templates/tool_chat_template_llama3.1_json.jinja"
         )
 
-        StateAgent = BaseAgent(
+        StateAgent = GBCAgent(
             system_name="state_agent",
             environment=environment,
             tools=[],
@@ -89,7 +89,7 @@ class Multiwoz24System(BaseAgentSystem):
             maximum_loops=maximum_loops,
             log_name=log_name,
         )
-        ResponseAgent = BaseAgent(
+        ResponseAgent = GBCAgent(
             system_name="response_agent",
             environment=environment,
             tools=["book_taxi"],
@@ -118,7 +118,7 @@ class Multiwoz24System(BaseAgentSystem):
         Read the state from the the output of the state agent.
         """
         grounding_utterance = metadata.grounding_utterance
-        dialogue_state_raw = metadata.output.strip()
+        dialogue_state_raw = metadata.output.strip() or metadata.note.strip()
         try:
             dialogue_state = json.loads(dialogue_state_raw)
         except json.JSONDecodeError:
@@ -147,6 +147,13 @@ class Multiwoz24System(BaseAgentSystem):
             "",
             metadata.note
         ]
+        return metadata
+
+    def on_finalization(self, metadata: MultiWOZ24MetaData) -> MultiWOZ24MetaData:
+        """
+        Finalize the metadata after the response agent has generated the response.
+        """
+        metadata.system_response = metadata.output.strip() or metadata.note.strip()
         return metadata
     
 multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_gbc_example.log")

@@ -1,12 +1,11 @@
 {
-    "inform": {
-        "taxi": 1.0,
-        "total": 1.0
-    },
-    "success": {
-        "attraction": 1.0,
-        "total": 1.0
-    },
-    "total_turns": 4.0,
-    "false_negative": 27.0
+    "inform": 0.9999999999,
+    "success": 0.9999999999,
+    "matched_turns": 3.0,
+    "total_turns": 3.0,
+    "true_positive": 8.0,
+    "joint_goal_accuracy": 0.9999999999666667,
+    "slot_recall": 0.9999999999875,
+    "slot_precision": 0.9999999999875,
+    "slot_f1": 0.9999999999375
 }

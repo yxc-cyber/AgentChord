@@ -23,8 +23,8 @@ def normalize_data(input_data, type):
         for slot, value in input_data.items():
             domain, slot = slot.split('-')
             slot = slot.lower().replace(' ', '')
-            if slot == "arriveby": slot = "arrive"
-            elif slot == "leaveat": slot = "leave"
+            # if slot == "arriveby": slot = "arrive"
+            # elif slot == "leaveat": slot = "leave"
             new_state[domain+"-"+slot] = normalize_state_slot_value(slot, value)
         return new_state
     elif type == "dialogue":  # In-place normalization
@@ -40,8 +40,8 @@ def normalize_data(input_data, type):
                     new_state = {}
                     for slot, value in turn["state"][domain].items():          
                         slot = slot.lower().replace(' ', '')
-                        if slot == "arriveby": slot = "arrive"
-                        elif slot == "leaveat": slot = "leave"
+                        # if slot == "arriveby": slot = "arrive"
+                        # elif slot == "leaveat": slot = "leave"
                         new_state[slot] =  normalize_state_slot_value(slot, value)
                     turn["state"][domain] = new_state
         return input_data

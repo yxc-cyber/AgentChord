@@ -1,10 +1,9 @@
 import json
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Self, Tuple, Union
 
 from litellm import Message
 
 from ..environment import BaseEnvironment
-from ..gbc_object import GBC, GBCBase
 from ..metadata import BaseMetaData
 from ..model import ModelConfig, ModelFactory
 from ..utils import (
@@ -40,6 +39,7 @@ class BaseAgent(BaseAgentSystem):
         self.messages = list()
         super().__init__(system_name=system_name, environment=environment, maximum_loops=maximum_loops, log_name=log_name, tools=tools)
         self.messages_initialization()
+        self.optimization_info = list()
         self.logger.debug(f"Available tools: {self.tool_descriptions}")
 
     def execution_loop(self, meta_data: BaseMetaData, loop: bool = False) -> BaseMetaData:
@@ -73,20 +73,6 @@ class BaseAgent(BaseAgentSystem):
                 note = previous_note or EMPTY_PLACEHOLDER
             )
             content = f"{INPUT_HEADER}{content}{INPUT_FOOTER}"
-            if isinstance(input_content, GBCBase):
-                content = GBC(
-                    content,
-                    connections=input_content.get_connections(),
-                    weights=input_content.get_weights(),
-                    subject=self.system_name
-                )
-            else:
-                content = GBC(
-                    content,
-                    connections=input_content,
-                    weights=1.0,
-                    subject=self.system_name
-                )
             self.messages.append({
                 "role": "user",
                 "content": content
@@ -97,21 +83,6 @@ class BaseAgent(BaseAgentSystem):
                 note = previous_note or EMPTY_PLACEHOLDER
             ) for input_content, previous_note in zip(input_content, previous_note)]
             content = f"{INPUT_HEADER}{INPUT_SEPARATOR.join(content_list)}{INPUT_FOOTER}"
-            connections = list()
-            weights = list()
-            for single_input_content in input_content:
-                if isinstance(single_input_content, GBCBase):
-                    connections.extend(single_input_content.get_connections())
-                    weights.extend(single_input_content.get_weights())
-                else:
-                    connections.append(single_input_content)
-                    weights.append(1.0)
-            content = GBC(
-                content,
-                connections=connections,
-                weights=weights,
-                subject=self.system_name
-            )
             self.messages.append({
                 "role": "user",
                 "content": content
@@ -122,14 +93,12 @@ class BaseAgent(BaseAgentSystem):
         # Begin the execution loop
         terminate = False
         loop_counter = 0
-        connection_pool = content.get_connections()
         while not terminate and loop_counter < self.maximum_loops:
             self.logger.debug(f"Message history: {self.messages}")
             output_message = self.completion(self.messages)
             self.logger.debug(f"New message: {output_message.json()}")
             self.messages.append(output_message.json())
             if output_message.tool_calls:
-                temp_connection_pool = list()
                 for tool_call in output_message.tool_calls:
                     tool_call_id = tool_call.id
                     tool_name = tool_call.function.name.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, "")
@@ -138,91 +107,25 @@ class BaseAgent(BaseAgentSystem):
                         tool_result = self.inner_environment.apply_tool(tool_name, tool_arguments)
                         self.logger.debug(f"Tool result: {tool_result}")
                         tool_result_dict = json.loads(tool_result)
-                        output_note_info = OUTPUT_NOTE_INFO.format(
-                            output = tool_result_dict["output"] or EMPTY_PLACEHOLDER,
-                            note = tool_result_dict["note"] or EMPTY_PLACEHOLDER
-                        )
-                        output_note_info = GBC(
-                            output_note_info,
-                            connections=output_message.gbc_tool_calls.get_connections(),
-                            weights=output_message.gbc_tool_calls.get_weights(),
-                            subject=self.system_name
-                        )
-                        meta_data.output = GBC(
-                            tool_result_dict["output"], 
-                            connections=output_note_info,
-                            weights=1.0,
-                            subject=self.system_name
-                        )
-                        meta_data.note = GBC(
-                            tool_result_dict["note"],
-                            connections=output_note_info,
-                            weights=1.0,
-                            subject=self.system_name
-                        )
+                        meta_data.output = tool_result_dict["output"]
+                        meta_data.note = tool_result_dict["note"]
                         terminate = True
                     else:
                         tool_result = self.environment.apply_tool(tool_name, tool_arguments)
                         self.logger.debug(f"Tool result: {tool_result}")
                         meta_data.tool.append({"tool_name": tool_name, "tool_arguments": tool_arguments, "tool_result": tool_result})
                     
-                    tool_info = TOOL_INFO.format(
-                        tool_name = tool_name or EMPTY_PLACEHOLDER,
-                        tool_parameters = json.dumps(tool_arguments, indent=2) or EMPTY_PLACEHOLDER
-                    )
-                    tool_info = GBC(
-                        tool_info,
-                        connections=output_message.gbc_tool_calls.get_connections(),
-                        weights=output_message.gbc_tool_calls.get_weights(),
-                        subject=self.system_name
-                    )
-
-                    tool_result_info = TOOL_RESULT_INFO.format(tool_result = tool_result or EMPTY_PLACEHOLDER)
-                    tool_result_info = GBC(
-                        tool_result_info,
-                        connections=tool_info,
-                        weights=1.0,
-                        subject=self.system_name
-                    )
-                    temp_connection_pool.append(tool_result_info)
                     tool_result = f"{TOOL_HEADER}{tool_result}{TOOL_FOOTER}"
-                    tool_result = GBC(
-                        tool_result,
-                        connections=connection_pool,
-                        weights=[1.0] * len(connection_pool),
-                        subject=self.system_name
-                    )
                     self.messages.append({
                         "role":"tool",
                         "tool_call_id":tool_call_id,
                         "name": tool_name,
                         "content":tool_result
                     })
-                connection_pool.extend(temp_connection_pool)
             else:
                 output_message.content = output_message.content.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, "")
-                output_note_info = OUTPUT_NOTE_INFO.format(
-                    output = EMPTY_PLACEHOLDER,
-                    note = NOTE_NO_ACTION.format(output = output_message.content or EMPTY_PLACEHOLDER)
-                )
-                output_note_info = GBC(
-                    output_note_info,
-                    connections=output_message.gbc_content.get_connections(),
-                    weights=output_message.gbc_content.get_weights(),
-                    subject=self.system_name
-                )
-                meta_data.output = GBC(
-                    "",
-                    connections=output_note_info,
-                    weights=1.0,
-                    subject=self.system_name
-                )
-                meta_data.note = GBC(
-                    NOTE_NO_ACTION.format(output = output_message.content or EMPTY_PLACEHOLDER),
-                    connections=output_note_info,
-                    weights=1.0,
-                    subject=self.system_name
-                )
+                meta_data.output = ""
+                meta_data.note = NOTE_NO_ACTION.format(output = output_message.content or EMPTY_PLACEHOLDER)
                 terminate = True
             loop_counter += 1
         self.logger.debug(f"Returning {meta_data}")
@@ -259,3 +162,19 @@ class BaseAgent(BaseAgentSystem):
 
     def set_log_redirection(self, file_name: str):
         self.logger.set_log_redirection(file_name)
+
+    def get_agents(self) -> List[Self]:
+        return {self.system_name: self}
+
+    def append_optimization_info(self, info: List[List[Tuple[Union[str, Self], str]]]) -> List[List[Tuple[Union[str, Self], str]]]:
+        """
+        Append optimization information to the agent's optimization info list.
+        """
+        self.optimization_info.extend(info)
+        return self.optimization_info
+
+    def get_optimization_info(self) -> List[List[Tuple[Union[str, Self], str]]]:
+        """
+        Get the optimization information of the agent.
+        """
+        return self.optimization_info

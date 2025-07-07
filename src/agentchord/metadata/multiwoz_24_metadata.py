@@ -6,11 +6,13 @@ from .base_metadata import BaseMetaData
 @dataclass
 class MultiWOZ24MetaData(BaseMetaData):
     grounding_utterance: str = ""
+    groundtruth_dialogue_state: dict = field(default_factory=dict)
     dialogue_state: dict = field(default_factory=dict)
     system_response: str = ""
     delixicalized_system_response: str = ""
     inform: dict = field(default_factory=dict)
     success: dict = field(default_factory=dict)
+    success_detail: dict = field(default_factory=dict)
     matched_turns: float = 0.0
     total_turns: float = 0.0
     true_positive: float = 0.0

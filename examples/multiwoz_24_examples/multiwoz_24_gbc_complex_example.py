@@ -7,8 +7,8 @@ import torch
 from transformers import BitsAndBytesConfig
 
 from agentchord import (
-    BaseAgent,
     BaseAgentSystem,
+    GBCAgent,
     ModelConfig,
     Multiwoz24Environment,
     MultiWOZ24MetaData,
@@ -171,7 +171,7 @@ You are a helpful agent that can retrieve taxi domain dialogue states from the u
 The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
 ```json
 {
-    "taxi-arriveBy": {
+    "taxi-arriveby": {
         "type": "string",
         "description": "The time by which the taxi should arrive in the format HH:MM."
     },
@@ -183,7 +183,7 @@ The keys are the names of the slots and the values are the values of the slots. 
         "type": "string",
         "description": "The destination location of the taxi."
     },
-    "taxi-leaveAt": {
+    "taxi-leaveat": {
         "type": "string",
         "description": "The time at which the taxi should leave in the format HH:MM."
     }
@@ -192,7 +192,7 @@ The keys are the names of the slots and the values are the values of the slots. 
 The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
 {
-    "taxi-arriveBy": "17:45",
+    "taxi-arriveby": "17:45",
     "taxi-departure": "Cambridge city center",
     "taxi-destination": "The Eagle pub"
 }
@@ -204,7 +204,7 @@ You are a helpful agent that can retrieve train domain dialogue states from the 
 The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
 ```json
 {
-    "train-arriveBy": {
+    "train-arriveby": {
         "type": "string",
         "description": "The time by which the train arrives in the format HH:MM."
     },
@@ -225,7 +225,7 @@ The keys are the names of the slots and the values are the values of the slots. 
         "type": "string",
         "description": "The destination location of the train."
     },
-    "train-leaveAt": {
+    "train-leaveat": {
         "type": "string",
         "description": "The time at which the train leaves in the format HH:MM."
     }
@@ -234,7 +234,7 @@ The keys are the names of the slots and the values are the values of the slots. 
 The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
 {
-    "train-arriveBy": "17:45",
+    "train-arriveby": "17:45",
     "train-book people": "2",
     "train-day": "monday",
     "train-departure": "Cambridge",
@@ -326,7 +326,7 @@ class Multiwoz24DomainUnit(BaseAgentSystem):
             maximum_loops=maximum_loops,
             log_name=log_name
         )
-        StateAgent = BaseAgent(
+        StateAgent = GBCAgent(
             system_name=f"{domain}_state_agent",
             environment=environment,
             tools=[],
@@ -335,7 +335,7 @@ class Multiwoz24DomainUnit(BaseAgentSystem):
             maximum_loops=maximum_loops,
             log_name=log_name,
         )
-        ToolAgent = BaseAgent(
+        ToolAgent = GBCAgent(
             system_name=f"{domain}_tool_agent",
             environment=environment,
             tools=tools,
@@ -353,7 +353,7 @@ class Multiwoz24DomainUnit(BaseAgentSystem):
         Read the state from the the output of the state agent.
         """
         grounding_utterance = metadata.grounding_utterance
-        dialogue_state_raw = metadata.output.strip()
+        dialogue_state_raw = metadata.output.strip() or metadata.note.strip()
         try:
             dialogue_state = json.loads(dialogue_state_raw)
         except json.JSONDecodeError:
@@ -450,7 +450,7 @@ class Multiwoz24System(BaseAgentSystem):
             log_name=log_name,
             return_list=True
         )
-        response_agent = BaseAgent(
+        response_agent = GBCAgent(
             system_name="response_agent",
             environment=environment,
             tools=[],
@@ -504,6 +504,13 @@ class Multiwoz24System(BaseAgentSystem):
         final_metadata.note = final_note
         final_metadata.dialogue_state = final_state
         return final_metadata
+
+    def on_finalization(self, metadata: MultiWOZ24MetaData) -> MultiWOZ24MetaData:
+        """
+        Finalize the metadata after the response agent has generated the response.
+        """
+        metadata.system_response = metadata.output.strip() or metadata.note.strip()
+        return metadata
     
 multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_gbc_complex_example.log")
 print(multiwoz_24_system.get_pipeline_description())

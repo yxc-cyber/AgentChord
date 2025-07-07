@@ -1,4 +1,9 @@
-from typing import Any, List, Optional, Union
+import random
+from copy import copy
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
+
+if TYPE_CHECKING:
+    from ..agent_system import BaseAgent
 
 
 class GBCBase:
@@ -30,10 +35,10 @@ class GBCBase:
     def get_weights(self) -> list:
         return self.weights
     
-    def bind_subject(self, subject: str) -> None:
+    def bind_subject(self, subject: Union[str, "BaseAgent"]) -> None:
         self.subject = subject
 
-    def get_subject(self) -> Optional[str]:
+    def get_subject(self) -> Optional[Union[str, "BaseAgent"]]:
         return self.subject
     
     def get_node_representation(self) -> str:
@@ -42,3 +47,35 @@ class GBCBase:
         This method should be overridden by subclasses to provide specific representations.
         """
         return f"GBC Object ({self.subject if self.subject else 'Unnamed Subject'}): \n{self}"
+    
+    def backward(self, bandwidth: int = 3, cache: Optional[List[List[Tuple[Union[str, "BaseAgent"], Any]]]] = None) -> None:
+        """
+        Backward pass for the GBC object.
+        """
+        from ..agent_system import BaseAgent, Input
+
+        # Update the cache with the current subject and self.
+        if cache is None:
+            cache = [[(self.subject, self)]]
+        else:
+            new_cache = list()
+            for trajectory in cache:
+                trajectory = copy(trajectory)
+                trajectory.insert(0, (self.subject, self))
+                new_cache.append(trajectory)
+            cache = new_cache
+        # If the subject is a BaseAgent, append the optimization info to it.
+        if self.subject and (isinstance(self.subject, BaseAgent) or isinstance(self.subject, Input)):
+            self.subject.append_optimization_info(cache)
+        # Select the strongest connections based on the weights. Break ties in random order.
+        connections_and_weights = list(zip(self.connections, self.weights))
+        shuffled_connections_and_weights = random.sample(connections_and_weights, len(connections_and_weights))
+        sorted_indices = sorted(
+            range(len(shuffled_connections_and_weights)),
+            key=lambda i: shuffled_connections_and_weights[i][1],
+            reverse=True
+        )[:bandwidth]
+        selected_connections = [shuffled_connections_and_weights[i][0] for i in sorted_indices]
+        for connection in selected_connections:
+            if isinstance(connection, GBCBase):
+                connection.backward(bandwidth=bandwidth, cache=cache)

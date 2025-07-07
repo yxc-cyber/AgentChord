@@ -1,9 +1,12 @@
-from typing import Any, Callable, List, Optional, Self
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Self
 
 from ..environment import BaseEnvironment, InnerEnvironment
 from ..metadata import BaseMetaData
 from ..sequence import BaseSequence
 from ..utils import Action, Logger
+
+if TYPE_CHECKING:
+    from .base_agent import BaseAgent
 
 
 class BaseAgentSystem:
@@ -198,3 +201,13 @@ class BaseAgentSystem:
         for subsystem_name in self.subsystem_sequence:
             subsystem = self.subsystems[subsystem_name]
             subsystem.set_log_redirection(file_name)
+
+    def get_agents(self) -> List["BaseAgent"]:
+        agents = dict()
+        for subsystem_name in self.subsystem_sequence:
+            subsystem = self.subsystems[subsystem_name]
+            agents.update(subsystem.get_agents())
+        return agents
+
+    def __repr__(self):
+        return self.system_name

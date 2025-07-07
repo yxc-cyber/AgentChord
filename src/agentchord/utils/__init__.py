@@ -13,3 +13,4 @@ from .prompt import (
     TOOL_INFO,
     TOOL_RESULT_INFO,
 )
+from .singleton_meta import SingletonMeta

@@ -10,7 +10,7 @@ from agentchord import (
 )
 
 prompt_read_state = """
-You are a helpful agent that can retrieve dialogue states from the user.
+You are a helpful agent that can retrieve dialogue states from the user. You don't interact with the user. Your only task is to read the dialogue state from the dialogue history and output it in JSON format.
 The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
 ```json
 {
@@ -107,7 +107,7 @@ The keys are the names of the slots and the values are the values of the slots. 
         "description": "The price range of the restaurant.",
         "enum": ["cheap", "moderate", "expensive"]
     },
-    "taxi-arriveBy": {
+    "taxi-arriveby": {
         "type": "string",
         "description": "The time by which the taxi should arrive in the format HH:MM."
     },
@@ -119,11 +119,11 @@ The keys are the names of the slots and the values are the values of the slots. 
         "type": "string",
         "description": "The destination location of the taxi."
     },
-    "taxi-leaveAt": {
+    "taxi-leaveat": {
         "type": "string",
         "description": "The time at which the taxi should leave in the format HH:MM."
     },
-    "train-arriveBy": {
+    "train-arriveby": {
         "type": "string",
         "description": "The time by which the train arrives in the format HH:MM."
     },
@@ -144,7 +144,7 @@ The keys are the names of the slots and the values are the values of the slots. 
         "type": "string",
         "description": "The destination location of the train."
     },
-    "train-leaveAt": {
+    "train-leaveat": {
         "type": "string",
         "description": "The time at which the train leaves in the format HH:MM."
     },
@@ -219,7 +219,7 @@ class Multiwoz24System(BaseAgentSystem):
         Read the state from the the output of the state agent.
         """
         grounding_utterance = metadata.grounding_utterance
-        dialogue_state_raw = metadata.output.strip()
+        dialogue_state_raw = metadata.output.strip() or metadata.note.strip()
         try:
             dialogue_state = json.loads(dialogue_state_raw)
         except json.JSONDecodeError:
@@ -233,7 +233,14 @@ class Multiwoz24System(BaseAgentSystem):
         metadata.input = f"Dialogue History:\n{grounding_utterance}\nDialogue State:\n{json.dumps(dialogue_state)}"
         return metadata
     
-multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_system.log")
+    def on_finalization(self, metadata: MultiWOZ24MetaData) -> MultiWOZ24MetaData:
+        """
+        Finalize the metadata after the response agent has generated the response.
+        """
+        metadata.system_response = metadata.output.strip() or metadata.note.strip()
+        return metadata
+    
+multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_evaluation_example.log")
 print(multiwoz_24_system.get_pipeline_description())
 
 for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_cases(mode="test")):
@@ -241,8 +248,14 @@ for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_
         multiwoz_24_system.set_environment(environment=turn_case)
         result = multiwoz_24_system.run()
         evaluation_result = turn_case.evaluate(result)
-        # if turn_idx > 2:
-        #     break
-    if dialogue_idx > 2:
-        break
-evaluation_result = Multiwoz24Environment.evaluate_test_cases(mode="test").to_json("examples/multiwoz_24_examples/multiwoz_24_evaluation_example.json")
+        print(f"System response: {result.system_response}")
+        print(f"Ground truth dialogue state: {evaluation_result.groundtruth_dialogue_state}")
+        print(f"Dialogue state: {evaluation_result.dialogue_state}")
+        print(f"Inform: {evaluation_result.inform}")
+        print(f"Success: {evaluation_result.success_detail}")
+        print("\n\n")
+    break
+
+print(f"Total evaluation record: {Multiwoz24Environment.evaluation_record}")
+final_eval_result = Multiwoz24Environment.evaluate_test_cases(mode="test").to_json("examples/multiwoz_24_examples/multiwoz_24_evaluation_example.json")
+print(f"Final evaluation result: {final_eval_result}")
