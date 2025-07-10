@@ -23,6 +23,7 @@ class OPROOptimizer(BaseOptimizer):
         self.optimization_info = Input().get_optimization_info()
 
     def step(self):
+        self.optimization_info = Input().get_optimization_info()
         for trajectory in self.optimization_info:
             trajectory_str = " -> ".join([f"{output[0]}: {output[1]}" for output in trajectory])
             # Todo: Implement the optimization logic using the model.

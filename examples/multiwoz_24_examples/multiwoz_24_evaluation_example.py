@@ -237,7 +237,7 @@ class Multiwoz24System(BaseAgentSystem):
         """
         Finalize the metadata after the response agent has generated the response.
         """
-        metadata.system_response = metadata.output.strip() or metadata.note.strip()
+        metadata.system_response = metadata.output or metadata.note
         return metadata
     
 multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_evaluation_example.log")

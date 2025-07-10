@@ -496,20 +496,23 @@ class Multiwoz24System(BaseAgentSystem):
             )]
         final_note = [""]
         final_state = dict()
+        final_tool = list()
         for single_metadata in metadata:
             final_input.append(single_metadata.output)
             final_note.append(single_metadata.note)
             final_state.update(single_metadata.dialogue_state)
+            final_tool.extend(single_metadata.tool)
         final_metadata.input = final_input
         final_metadata.note = final_note
         final_metadata.dialogue_state = final_state
+        final_metadata.tool = final_tool
         return final_metadata
 
     def on_finalization(self, metadata: MultiWOZ24MetaData) -> MultiWOZ24MetaData:
         """
         Finalize the metadata after the response agent has generated the response.
         """
-        metadata.system_response = metadata.output.strip() or metadata.note.strip()
+        metadata.system_response = metadata.output or metadata.note
         return metadata
     
 multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_gbc_complex_example.log")

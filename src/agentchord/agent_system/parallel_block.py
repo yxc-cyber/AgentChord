@@ -56,6 +56,7 @@ class ParallelBlock(BaseAgentSystem):
         meta_data_list = []
         final_output = []
         final_note = []
+        final_tool = []
         while loop_counter < self.maximum_loops:
             self.subsystem_sequence.set_not_done()
             while not self.subsystem_sequence.is_done():
@@ -76,6 +77,7 @@ class ParallelBlock(BaseAgentSystem):
                 meta_data_list.append(new_meta_data)
                 final_output.append(new_meta_data.output)
                 final_note.append(new_meta_data.note)
+                final_tool.extend(new_meta_data.tool)
                 # Early termination if the environment is done
                 if self.environment.is_done():
                     self.subsystem_sequence.set_done()
@@ -88,4 +90,5 @@ class ParallelBlock(BaseAgentSystem):
         else:
             new_meta_data.output = final_output
             new_meta_data.note = final_note
+            new_meta_data.tool = final_tool
             return new_meta_data

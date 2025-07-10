@@ -11,7 +11,8 @@ from agentchord import (
     Multiwoz24Environment,
     MultiWOZ24MetaData,
 )
-from agentchord.gbc_object import GBC, GBCBase, visualize_gbc_tree
+from agentchord.gbc_object import GBC, visualize_gbc_tree
+from agentchord.loss import MultiWOZ24Loss
 
 prompt_read_state = """
 You are a helpful agent that can retrieve dialogue states from the user.
@@ -155,21 +156,28 @@ class Multiwoz24System(BaseAgentSystem):
         """
         metadata.system_response = metadata.output or metadata.note
         return metadata
-    
-multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_gbc_example.log")
+
+multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_loss_example.log")
 print(multiwoz_24_system.get_pipeline_description())
 
+loss_fn = MultiWOZ24Loss()
 for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_cases(mode="test")):
     for turn_idx, turn_case in enumerate(dialogue_case.iterate_dialog_turns()):
         multiwoz_24_system.set_environment(environment=turn_case)
         result = multiwoz_24_system.run()
-        # if turn_idx >= 0:
-        break
-    # if dialogue_idx >= 0:
+        evaluation_result = turn_case.evaluate(result)
+        loss = loss_fn.compute_loss(prediction=result, evaluation_result=evaluation_result, type="joint_goal_accuracy")
+        print(f"Dialogue {dialogue_idx}, Turn {turn_idx}")
+        print("Evaluation Result:", evaluation_result)
+        print("Loss:", loss)
+        print("===============================")
     break
 
-assert isinstance(result, MultiWOZ24MetaData)
-assert isinstance(result.output, str)
-assert isinstance(result.output, GBCBase)
-print("Final Response:", result.output)
-visualize_gbc_tree(result.output, save_path="examples/multiwoz_24_examples/multiwoz_24_gbc_example.png")
+visualize_gbc_tree(loss, save_path="examples/multiwoz_24_examples/multiwoz_24_loss_example_1.png")
+
+evaluation_result = Multiwoz24Environment.evaluate_test_cases(mode="test")
+loss = loss_fn.compute_loss(prediction=result, evaluation_result=evaluation_result, type="inform_success")
+visualize_gbc_tree(loss, save_path="examples/multiwoz_24_examples/multiwoz_24_loss_example_2.png")
+print("Final Evaluation Result:", evaluation_result)
+print("Final Loss:", loss)
+print("===============================")

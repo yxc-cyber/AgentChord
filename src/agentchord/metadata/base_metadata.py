@@ -7,7 +7,7 @@ from typing import List, Optional, Union
 class BaseMetaData:
     input: Union[str, List[str]] = ""
     note: Union[str, List[str]] = ""
-    tool: list = field(default_factory=list)
+    tool: list = field(default_factory=list)  # List of tool usage, each tool usage is a dict with keys: "tool_name", "tool_arguments" (dict), "tool_result"
     output: str = ""
     sample_id: int = 0
 
