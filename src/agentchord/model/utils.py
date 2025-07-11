@@ -1,3 +1,5 @@
+import json
+import re
 from typing import Literal, Optional, Union
 
 from litellm import Message
@@ -97,8 +99,6 @@ def parse_json_string(json_string: str) -> Optional[Union[dict, list]]:
     """
     Parse a JSON string and return the corresponding Python object.
     """
-    import json
-    import re
     def sanitize_invalid_escapes(s):
         # Replace \' with '
         s = re.sub(r"\\'", "'", s)

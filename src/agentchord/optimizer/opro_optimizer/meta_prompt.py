@@ -21,7 +21,7 @@ The structure of the multi-agent system:
   ...
 }
 ```
-The optimization history and the corresponding performances:
+The optimization history and the corresponding performance:
 ```json
 [
   {
@@ -30,7 +30,7 @@ The optimization history and the corresponding performances:
       "agent_name_2": "Prompt for agent 2",
       ...
   },
-    "performances": "A brief description of the performance of the multi-agent system, including the expected output and the actual output.",
+    "performance": "A brief description of the performance of the multi-agent system, including the expected output and the actual output.",
   },
   {
     "prompts": {
@@ -38,7 +38,7 @@ The optimization history and the corresponding performances:
       "agent_name_2": "Prompt for agent 2",
       ...
   },
-    "performances": "A brief description of the performance of the multi-agent system, including the expected output and the actual output.",
+    "performance": "A brief description of the performance of the multi-agent system, including the expected output and the actual output.",
   },
   ...
 ]
@@ -58,8 +58,8 @@ You should output a JSON object with the following structure:
 {
   "reasoning": "Your reasoning about the agents and their prompts.",
   "agent_prompts": {
-    "agent_name_1": "New prompt for agent 1",
-    "agent_name_2": "New prompt for agent 2",
+    "agent_name_x": "New prompt for agent x",
+    "agent_name_y": "New prompt for agent y",
     ...
   }
 }
@@ -71,7 +71,7 @@ The structure of the multi-agent system:
 ```json
 {agent_structure}
 ```
-The optimization history and the corresponding performances:
+The optimization history and the corresponding performance:
 ```json
 {optimization_history}
 ```

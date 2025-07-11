@@ -11,8 +11,10 @@ from agentchord import (
     Multiwoz24Environment,
     MultiWOZ24MetaData,
 )
+from agentchord.agent_system import Input
 from agentchord.gbc_object import GBC, visualize_gbc_tree
 from agentchord.loss import MultiWOZ24Loss
+from agentchord.optimizer import OPROOptimizer
 
 prompt_read_state = """
 You are a helpful agent that can retrieve dialogue states from the user.
@@ -160,6 +162,13 @@ class Multiwoz24System(BaseAgentSystem):
 multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_loss_example.log")
 print(multiwoz_24_system.get_pipeline_description())
 
+optimizer = OPROOptimizer(
+    agents=multiwoz_24_system.get_agents(),
+    model_config=ModelConfig(
+        client_model="openai/gpt-4o-mini",
+    ),
+    log_name="multiwoz_24_loss_example.log"
+)
 loss_fn = MultiWOZ24Loss()
 for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_cases(mode="test")):
     for turn_idx, turn_case in enumerate(dialogue_case.iterate_dialog_turns()):
@@ -181,3 +190,11 @@ visualize_gbc_tree(loss, save_path="examples/multiwoz_24_examples/multiwoz_24_lo
 print("Final Evaluation Result:", evaluation_result)
 print("Final Loss:", loss)
 print("===============================")
+print("\n\n")
+
+print("Optimizing prompts...")
+print(f"Initial prompts: {optimizer.prompts}")
+loss.backward(bandwidth=1)
+optimizer.step(performance=f"Inform: {evaluation_result.inform['total']}; Success: {evaluation_result.success['total']}; Joint Goal Accuracy: {evaluation_result.joint_goal_accuracy}")
+print(f"Optimized prompts: {optimizer.prompts}")
+print("Optimization complete.")

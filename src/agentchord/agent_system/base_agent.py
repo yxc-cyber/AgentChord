@@ -13,11 +13,8 @@ from ..utils import (
     INPUT_SEPARATOR,
     INPUT_WITH_NOTE,
     NOTE_NO_ACTION,
-    OUTPUT_NOTE_INFO,
     TOOL_FOOTER,
     TOOL_HEADER,
-    TOOL_INFO,
-    TOOL_RESULT_INFO,
 )
 from .base_agent_system import BaseAgentSystem
 
@@ -165,6 +162,20 @@ class BaseAgent(BaseAgentSystem):
 
     def get_agents(self) -> List[Self]:
         return {self.system_name: self}
+    
+    def get_prompt(self) -> str:
+        """
+        Get the prompt of the agent.
+        """
+        return self.prompt
+    
+    def set_prompt(self, prompt: str):
+        """
+        Set the prompt of the agent.
+        :param prompt: The new prompt for the agent.
+        """
+        self.prompt = prompt
+        self.messages_initialization()
 
     def append_optimization_info(self, info: List[List[Tuple[Union[str, Self], str]]]) -> List[List[Tuple[Union[str, Self], str]]]:
         """

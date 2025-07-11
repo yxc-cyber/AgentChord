@@ -14,7 +14,7 @@ class Input(metaclass=SingletonMeta):
         Initialize the Input agent with input data.
         :param input_data: The input data to be represented by this agent.
         """
-        self.optimization_info = list()
+        self.optimization_info_initialization()
     
     def append_optimization_info(self, info: List[List[Tuple[Union[str, BaseAgent, Self], str]]]) -> List[List[Tuple[Union[str, BaseAgent, Self], str]]]:
         """
@@ -29,5 +29,15 @@ class Input(metaclass=SingletonMeta):
         """
         return self.optimization_info
     
+    def optimization_info_initialization(self):
+        """
+        Initialize the optimization information of the agent.
+        This method is called to ensure that the agent has the latest optimization information.
+        """
+        self.optimization_info = list()
+    
     def __repr__(self):
         return "Input"
+    
+    def __deepcopy__(self, memo):
+        return self  # Always return the same instance
