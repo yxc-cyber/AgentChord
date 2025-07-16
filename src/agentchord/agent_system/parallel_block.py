@@ -1,4 +1,4 @@
-from copy import deepcopy
+from copy import copy
 from typing import List, Optional, Union
 
 from ..environment import BaseEnvironment
@@ -64,7 +64,7 @@ class ParallelBlock(BaseAgentSystem):
                 current_subsystem_name = self.subsystem_sequence.get_current_subsystem_name()
                 self.subsystem_sequence.update_next_subsystem()
                 # Make a copy of the meta data for each subsystem
-                new_meta_data = deepcopy(meta_data)
+                new_meta_data = copy(meta_data)
                 # Trigger on-start events
                 if current_subsystem_name in self.on_start_actions:
                     new_meta_data = self.on_start_actions[current_subsystem_name](new_meta_data)
@@ -74,9 +74,16 @@ class ParallelBlock(BaseAgentSystem):
                 if current_subsystem_name in self.on_completion_actions:
                     new_meta_data = self.on_completion_actions[current_subsystem_name](new_meta_data)
                 # Update the final meta data
+                # new_meta_data.load_non_basic_attributes(meta_data)
                 meta_data_list.append(new_meta_data)
-                final_output.append(new_meta_data.output)
-                final_note.append(new_meta_data.note)
+                if isinstance(new_meta_data.output, list):
+                    final_output.extend(new_meta_data.output)
+                else:
+                    final_output.append(new_meta_data.output)
+                if isinstance(new_meta_data.note, list):
+                    final_note.extend(new_meta_data.note)
+                else:
+                    final_note.append(new_meta_data.note)
                 final_tool.extend(new_meta_data.tool)
                 # Early termination if the environment is done
                 if self.environment.is_done():
@@ -88,7 +95,7 @@ class ParallelBlock(BaseAgentSystem):
         if self.return_list:
             return meta_data_list
         else:
-            new_meta_data.output = final_output
-            new_meta_data.note = final_note
-            new_meta_data.tool = final_tool
-            return new_meta_data
+            meta_data.output = final_output
+            meta_data.note = final_note
+            meta_data.tool = final_tool
+            return meta_data

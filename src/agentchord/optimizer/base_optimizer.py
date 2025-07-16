@@ -1,8 +1,8 @@
 from copy import deepcopy
-from typing import Dict
+from typing import Dict, Optional, Union
 
 from ..agent_system import BaseAgent, Input
-from ..utils import Logger
+from ..utils import Logger, WandBConfig
 
 
 class BaseOptimizer:
@@ -10,7 +10,13 @@ class BaseOptimizer:
     Base class for optimizers.
     """
 
-    def __init__(self, agents: Dict[str, BaseAgent], name: str = "BaseOptimizer", log_name: str = ""):
+    def __init__(
+            self,
+            agents: Dict[str, BaseAgent],
+            name: str = "BaseOptimizer",
+            log_name: str = "",
+            wandb_config: Optional[WandBConfig] = None
+        ):
         """
         Initialize the optimizer with the agent system.
         :param agent_system: The agents to be optimized.
@@ -22,6 +28,9 @@ class BaseOptimizer:
         self.optimization_history = list()
         self.update_attributes()
         self.logger = Logger(self.name, self.log_name)
+        self.wandb_config = wandb_config
+        if wandb_config:
+            self.init_wandb(wandb_config)
 
     def update_attributes(self):
         """
@@ -68,3 +77,31 @@ class BaseOptimizer:
         :param file_name: The name of the file to redirect logs to.
         """
         self.logger.set_log_redirection(file_name)
+
+    def init_wandb(self, wandb_config: WandBConfig):
+        """
+        Initialize Weights & Biases for logging.
+        This method should be called to set up Weights & Biases if it is being used for logging.
+        """
+        import wandb
+        wandb.login()
+        wandb.init(**wandb_config.to_dict())
+        self.logger.debug(f"Weights & Biases initialized: {wandb_config}")
+
+    def report_to_wandb(self, info: Dict[str, Union[int, float, str]]):
+        """
+        Report information to Weights & Biases.
+        :param info: A dictionary containing information to log.
+        """
+        import wandb
+        wandb.log(info)
+        self.logger.debug(f"Reported to Weights & Biases: {info}")
+
+    def finish_wandb(self):
+        """
+        Finish the Weights & Biases run.
+        This method should be called at the end of the optimization process to finalize the logging.
+        """
+        import wandb
+        wandb.finish()
+        self.logger.debug("Weights & Biases run finished.")

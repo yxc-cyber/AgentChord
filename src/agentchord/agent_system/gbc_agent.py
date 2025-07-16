@@ -1,4 +1,5 @@
 import json
+from copy import copy
 from typing import List, Optional
 
 from ..environment import BaseEnvironment
@@ -111,7 +112,7 @@ class GBCAgent(BaseAgent):
         # Begin the execution loop
         terminate = False
         loop_counter = 0
-        connection_pool = content.get_connections()
+        connection_pool = copy(content.get_connections())
         while not terminate and loop_counter < self.maximum_loops:
             self.logger.debug(f"Message history: {self.messages}")
             output_message = self.completion(self.messages)
@@ -177,7 +178,7 @@ class GBCAgent(BaseAgent):
                     tool_result = f"{TOOL_HEADER}{tool_result}{TOOL_FOOTER}"
                     tool_result = GBC(
                         tool_result,
-                        connections=connection_pool,
+                        connections=copy(connection_pool),
                         weights=[1.0] * len(connection_pool),
                         subject=self
                     )
@@ -188,6 +189,10 @@ class GBCAgent(BaseAgent):
                         "content":tool_result
                     })
                 connection_pool.extend(temp_connection_pool)
+                self.messages[-1]["content"].bind_connections(
+                    connections=copy(connection_pool),
+                    weights=[1.0] * len(connection_pool)
+                )
             else:
                 output_message.content = output_message.content.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, "")
                 output_note_info = OUTPUT_NOTE_INFO.format(

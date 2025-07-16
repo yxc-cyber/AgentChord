@@ -54,3 +54,6 @@ TOOL_RESULT_INFO = """
 {tool_result}
 </tool_result>
 """.strip()
+
+DONT_CHANGE_HEADER = "<DONT_CHANGE>"
+DONT_CHANGE_FOOTER = "</DONT_CHANGE>"

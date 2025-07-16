@@ -1,5 +1,5 @@
 import json
-from typing import Any, List, Optional, Self, Tuple, Union
+from typing import Any, Dict, List, Optional, Self, Tuple, Union
 
 from litellm import Message
 
@@ -160,7 +160,7 @@ class BaseAgent(BaseAgentSystem):
     def set_log_redirection(self, file_name: str):
         self.logger.set_log_redirection(file_name)
 
-    def get_agents(self) -> List[Self]:
+    def get_agents(self) -> Dict[str, Self]:
         return {self.system_name: self}
     
     def get_prompt(self) -> str:

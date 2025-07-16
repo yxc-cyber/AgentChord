@@ -194,7 +194,7 @@ class Multiwoz24Environment(BaseEnvironment):
             total_inform += inform["total"]
             total_success += success["total"]
             total_dialogues += 1.0
-            inform_detail = {domain: {"requested": requested_slots[domain], "provided": provided_slots[domain]} for domain in requested_slots}
+            inform_detail = {domain: {"requested": requested_queries[domain], "provided": provided_queries[domain]} for domain in requested_queries}
             success_detail = {domain: {"requested": requested_slots[domain], "provided": provided_slots[domain]} for domain in requested_slots}
         joint_goal_accuracy = matched_turns / (total_turns + 1e-10)
         slot_recall = true_positive / (true_positive + false_negative + 1e-10)
@@ -398,7 +398,7 @@ class Multiwoz24Environment(BaseEnvironment):
                 match_domain = True
             elif domain in ["restaurant", "hotel", "attraction", "train"] and len(offered_venues[domain]) > 0:
                 # Get venues from the database that match all the information provided by the user
-                goal_venues = self._query_basic(domain, **goal[domain]["informable"])
+                goal_venues = self._query_basic(domain, max_retrieval=50, max_return=50, **goal[domain]["informable"])
                 goal_venues = json.loads(goal_venues)
                 if "result" not in goal_venues or not goal_venues["result"]:
                     goal_venues = []
@@ -430,7 +430,7 @@ class Multiwoz24Environment(BaseEnvironment):
         # success["total"] = float(sum(success.values()) >= len(success.keys()))
         return match, match_detail, success, success_detail
 
-    def _query_basic(self, domain: str, max_retrieval: int = 10, **query) -> str:
+    def _query_basic(self, domain: str, max_retrieval: int = 10, max_return: int = 3, **query) -> str:
         valid_items = []
         for database_item in self.database[domain]:
             valid = True
@@ -450,9 +450,9 @@ class Multiwoz24Environment(BaseEnvironment):
                     break
             if valid:
                 if len(valid_items) == max_retrieval:
-                    return json.dumps({"result": valid_items, "message": "Too many retrieved results! Please query more accurately!"})
+                    return json.dumps({"result": valid_items[:max_return], "message": "Too many retrieved results! Please query more accurately!"})
                 valid_items.append(database_item)
-        return json.dumps({"result": valid_items})
+        return json.dumps({"result": valid_items[:max_return]})
     
     def _query_restaurant(
             self,

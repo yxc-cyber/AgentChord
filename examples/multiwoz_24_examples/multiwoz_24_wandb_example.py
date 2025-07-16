@@ -1,6 +1,5 @@
 import json
 import re
-from copy import deepcopy
 from typing import List
 
 import torch
@@ -14,232 +13,245 @@ from agentchord import (
     MultiWOZ24MetaData,
     ParallelBlock,
 )
-from agentchord.gbc_object import GBC, GBCBase, visualize_gbc_tree
+from agentchord.gbc_object import GBC, GBCBase
+from agentchord.loss import MultiWOZ24Loss
+from agentchord.optimizer import OPROOptimizer
+from agentchord.utils import DONT_CHANGE_FOOTER, DONT_CHANGE_HEADER, WandBConfig
 
 # Prompt templates for reading states
-prompt_read_attraction_state = """
+prompt_read_attraction_state = f"""
 You are a helpful agent that can retrieve taxi domain dialogue states from the user.
+{DONT_CHANGE_HEADER}
 The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
 ```json
-{
-    "attraction-area": {
+{{
+    "attraction-area": {{
         "type": "string",
         "description": "The area in which the attraction is located.",
         "enum": ["centre", "north", "south", "east", "west"]
-    },
-    "attraction-name": {
+    }},
+    "attraction-name": {{
         "type": "string",
         "description": "The name of the attraction."
-    },
-    "attraction-type": {
+    }},
+    "attraction-type": {{
         "type": "string",
         "description": "The type of the attraction.",
         "enum": ["museum", "swimmingpool", "architecture", "boat", "college", "nightclub", "entertainment", "cinema", "concerthall", "mutliple sports", "park", "theatre"]
-    }
-}
+    }}
+}}
 ```
+{DONT_CHANGE_FOOTER}
 The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
-{
+{{
     "attraction-area": "centre",
     "attraction-name": "The Fitzwilliam Museum",
     "attraction-type": "museum"
-}
+}}
 ```
 Note that this is not a tool call, you should only output the JSON object.
 """.strip()
-prompt_read_hotel_state = """
+prompt_read_hotel_state = f"""
 You are a helpful agent that can retrieve hotel domain dialogue states from the user.
+{DONT_CHANGE_HEADER}
 The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
 ```json
-{
-    "hotel-area": {
+{{
+    "hotel-area": {{
         "type": "string",
         "description": "The area in which the hotel is located.",
         "enum": ["centre", "north", "south", "east", "west"]
-    },
-    "hotel-book day": {
+    }},
+    "hotel-book day": {{
         "type": "string",
         "description": "The day of the booking.",
         "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    },
-    "hotel-book people": {
+    }},
+    "hotel-book people": {{
         "type": "string",
         "description": "The number of people in the booking."
-    },
-    "hotel-book stay": {
+    }},
+    "hotel-book stay": {{
         "type": "string",
         "description": "The number of days of the booking."
-    },
-    "hotel-internet": {
+    }},
+    "hotel-internet": {{
         "type": "string",
         "description": "Whether the hotel has internet.",
         "enum": ["yes", "no"]
-    },
-    "hotel-name": {
+    }},
+    "hotel-name": {{
         "type": "string",
         "description": "The name of the hotel."
-    },
-    "hotel-parking": {
+    }},
+    "hotel-parking": {{
         "type": "string",
         "description": "Whether the hotel has parking.",
         "enum": ["yes", "no"]
-    },
-    "hotel-pricerange": {
+    }},
+    "hotel-pricerange": {{
         "type": "string",
         "description": "The price range of the hotel.",
         "enum": ["cheap", "moderate", "expensive"]
-    },
-    "hotel-stars": {
+    }},
+    "hotel-stars": {{
         "type": "string",
         "description": "The number of stars of the hotel.",
         "enum": ["0", "1", "2", "3", "4", "5"]
-    },
-    "hotel-type": {
+    }},
+    "hotel-type": {{
         "type": "string",
         "description": "The type of the hotel.",
         "enum": ["bed and breakfast", "guesthouse", "hotel"]
-    }
-}
+    }}
+}}
 ```
+{DONT_CHANGE_FOOTER}
 The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
-{
+{{
     "hotel-area": "centre",
     "hotel-book day": "monday",
     "hotel-internet": "yes",
     "hotel-name": "The Cambridge Belfry",
     "hotel-parking": "yes",
     "hotel-pricerange": "moderate"
-}
+}}
 ```
 Note that this is not a tool call, you should only output the JSON object.
 """.strip()
-prompt_read_restaurant_state = """
+prompt_read_restaurant_state = f"""
 You are a helpful agent that can retrieve restaurant domain dialogue states from the user.
+{DONT_CHANGE_HEADER}
 The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
 ```json
-{
-    "restaurant-area": {
+{{
+    "restaurant-area": {{
         "type": "string",
         "description": "The area in which the restaurant is located.",
         "enum": ["centre", "north", "south", "east", "west"]
-    },
-    "restaurant-book day": {
+    }},
+    "restaurant-book day": {{
         "type": "string",
         "description": "The day of the booking.",
         "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    },
-    "restaurant-book people": {
+    }},
+    "restaurant-book people": {{
         "type": "string",
         "description": "The number of people in the booking."
-    },
-    "restaurant-book time": {
+    }},
+    "restaurant-book time": {{
         "type": "string",
         "description": "The time of the booking in the format HH:MM."
-    },
-    "restaurant-food": {
+    }},
+    "restaurant-food": {{
         "type": "string",
         "description": "The type of food served at the restaurant.",
         "enum": ["international", "indian", "mediterranean", "italian", "vietnamese", "lebanese", "african", "modern european", "french", "european", "portuguese", "japanese", "seafood", "chinese", "turkish", "gastropub", "british", "thai", "spanish", "korean", "north american", "mexican", "asian oriental"]
-    },
-    "restaurant-name": {
+    }},
+    "restaurant-name": {{
         "type": "string",
         "description": "The name of the restaurant."
-    },
-    "restaurant-pricerange": {
+    }},
+    "restaurant-pricerange": {{
         "type": "string",
         "description": "The price range of the restaurant.",
         "enum": ["cheap", "moderate", "expensive"]
-    }
-}
+    }}
+}}
 ```
+{DONT_CHANGE_FOOTER}
 The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
-{
+{{
     "restaurant-area": "centre",
     "restaurant-book day": "monday",
     "restaurant-book people": "2",
     "restaurant-food": "italian",
     "restaurant-name": "Trattoria Da Paolo"
-}
+}}
 ```
 Note that this is not a tool call, you should only output the JSON object.
 """.strip()
-prompt_read_taxi_state = """
+prompt_read_taxi_state = f"""
 You are a helpful agent that can retrieve taxi domain dialogue states from the user.
+{DONT_CHANGE_HEADER}
 The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
 ```json
-{
-    "taxi-arriveby": {
+{{
+    "taxi-arriveby": {{
         "type": "string",
         "description": "The time by which the taxi should arrive in the format HH:MM."
-    },
-    "taxi-departure": {
+    }},
+    "taxi-departure": {{
         "type": "string",
         "description": "The departure location of the taxi."
-    },
-    "taxi-destination": {
+    }},
+    "taxi-destination": {{
         "type": "string",
         "description": "The destination location of the taxi."
-    },
-    "taxi-leaveat": {
+    }},
+    "taxi-leaveat": {{
         "type": "string",
         "description": "The time at which the taxi should leave in the format HH:MM."
-    }
-}
+    }}
+}}
 ```
+{DONT_CHANGE_FOOTER}
 The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
-{
+{{
     "taxi-arriveby": "17:45",
     "taxi-departure": "Cambridge city center",
     "taxi-destination": "The Eagle pub"
-}
+}}
 ```
 Note that this is not a tool call, you should only output the JSON object.
 """.strip()
-prompt_read_train_state = """
+prompt_read_train_state = f"""
 You are a helpful agent that can retrieve train domain dialogue states from the user.
+{DONT_CHANGE_HEADER}
 The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
 ```json
-{
-    "train-arriveby": {
+{{
+    "train-arriveby": {{
         "type": "string",
         "description": "The time by which the train arrives in the format HH:MM."
-    },
-    "train-book people": {
+    }},
+    "train-book people": {{
         "type": "string",
         "description": "The number of people in the booking."
-    },
-    "train-day": {
+    }},
+    "train-day": {{
         "type": "string",
         "description": "The day on which the train departs.",
         "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    },
-    "train-departure": {
+    }},
+    "train-departure": {{
         "type": "string",
         "description": "The departure location of the train."
-    },
-    "train-destination": {
+    }},
+    "train-destination": {{
         "type": "string",
         "description": "The destination location of the train."
-    },
-    "train-leaveat": {
+    }},
+    "train-leaveat": {{
         "type": "string",
         "description": "The time at which the train leaves in the format HH:MM."
-    }
-}
+    }}
+}}
 ```
+{DONT_CHANGE_FOOTER}
 The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
-{
+{{
     "train-arriveby": "17:45",
     "train-book people": "2",
     "train-day": "monday",
     "train-departure": "Cambridge",
     "train-destination": "London"
-}
+}}
 ```
 Note that this is not a tool call, you should only output the JSON object.
 """.strip()
@@ -300,13 +312,14 @@ config = ModelConfig(
     local_model="LlamaModel",
     model_path="/shared/storage-01/users/xy61/models/Llama3.1-8B-Instruct",
     quantization_config=bnb_config,
-    max_new_tokens=1024,
+    max_new_tokens=128,
     # temperature=0.0,
     do_sample=False,
     gradient_strategy="sum_squares",
     connection_strategy="mean_l1_norm",
     chat_template_path="src/agentchord/model/chat_templates/tool_chat_template_llama3.1_json.jinja"
 )
+
 
 class Multiwoz24DomainUnit(BaseAgentSystem):
     def __init__(
@@ -335,14 +348,23 @@ class Multiwoz24DomainUnit(BaseAgentSystem):
             maximum_loops=maximum_loops,
             log_name=log_name,
         )
-        ToolAgent = GBCAgent(
-            system_name=f"{domain}_tool_agent",
+        ToolAgent = ParallelBlock(
+            system_name=f"{domain}_tool_agent_block",
             environment=environment,
-            tools=tools,
-            prompt=prompt_use_tool,
-            model_config=config,
+            subsystems=[
+                GBCAgent(
+                    system_name=f"{domain}_tool_agent({tool})",
+                    environment=environment,
+                    tools=[tool],
+                    prompt=prompt_use_tool,
+                    model_config=config,
+                    maximum_loops=maximum_loops,
+                    log_name=log_name
+                ) for tool in tools
+            ],
             maximum_loops=maximum_loops,
-            log_name=log_name
+            log_name=log_name,
+            return_list=False
         )
         self.add_subsystem(StateAgent)
         self.add_subsystem(ToolAgent)
@@ -363,25 +385,47 @@ class Multiwoz24DomainUnit(BaseAgentSystem):
                 dialogue_state = json.loads(match.group(2))
             else:
                 dialogue_state = dict()
-        metadata.dialogue_state = GBC(
-            dialogue_state,
-            connections=metadata.output.get_connections(),
-            weights=[1.0]
-        )
-        metadata.input = [
-            GBC(
-                f"Dialogue History:\n{grounding_utterance}",
-                connections=[
-                    metadata.grounding_utterance,
-                ],
-                weights=[1.0]
-            ),
-            GBC(
-                f"Dialogue State:\n{json.dumps(dialogue_state)}",
+        dialogue_state = {slot: value for slot, value in dialogue_state.items() if len(slot.split('-')) == 2 and isinstance(value, str)}
+        if isinstance(metadata.output, GBCBase):
+            metadata.dialogue_state = GBC(
+                dialogue_state,
                 connections=metadata.output.get_connections(),
                 weights=[1.0]
             )
-        ]
+            metadata.input = [
+                GBC(
+                    f"Dialogue History:\n{grounding_utterance}",
+                    connections=[
+                        metadata.grounding_utterance,
+                    ],
+                    weights=[1.0]
+                ),
+                GBC(
+                    f"Dialogue State:\n{json.dumps(dialogue_state)}",
+                    connections=metadata.output.get_connections(),
+                    weights=[1.0]
+                )
+            ]
+        else:
+            metadata.dialogue_state = GBC(
+                dialogue_state,
+                connections=metadata.output,
+                weights=[1.0]
+            )
+            metadata.input = [
+                GBC(
+                    f"Dialogue History:\n{grounding_utterance}",
+                    connections=[
+                        metadata.grounding_utterance,
+                    ],
+                    weights=[1.0]
+                ),
+                GBC(
+                    f"Dialogue State:\n{json.dumps(dialogue_state)}",
+                    connections=metadata.output,
+                    weights=[1.0]
+                )
+            ]
         metadata.note =[
             "",
             metadata.note
@@ -482,15 +526,7 @@ class Multiwoz24System(BaseAgentSystem):
         Aggregate the outputs from the domain units and prepare the input for the response agent.
         """
         assert isinstance(metadata, list)
-        print(f"Aggregating {len(metadata)} metadata objects from domain units.")
-        print("Metadata from domain units:")
-        for idx, single_metadata in enumerate(metadata):
-            print(f"Metadata {idx}:")
-            print(f"  Grounding Utterance: {single_metadata.grounding_utterance}")
-            print(f"  Output: {single_metadata.output}")
-            print(f"  Note: {single_metadata.note}")
-            print(f"  Dialogue State: {single_metadata.dialogue_state}")
-        final_metadata = deepcopy(metadata[-1])
+        final_metadata = metadata[-1]
         final_input = [GBC(
                 f"Dialogue History:\n{final_metadata.grounding_utterance}",
                 connections=[
@@ -524,21 +560,47 @@ class Multiwoz24System(BaseAgentSystem):
         """
         metadata.system_response = metadata.output or metadata.note
         return metadata
-    
-multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_gbc_complex_example.log")
+
+multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_24_wandb_example.log")
 print(multiwoz_24_system.get_pipeline_description())
 
+optimizer = OPROOptimizer(
+    agents=multiwoz_24_system.get_agents(),
+    model_config=ModelConfig(
+        client_model="openai/gpt-4o-mini",
+    ),
+    log_name="multiwoz_24_wandb_example.log",
+    wandb_config=WandBConfig(
+        project="AgentChord",
+        config={
+            "dataset": "MultiWOZ-24",
+            "system": "Multiwoz24System",
+            "model": "Llama3.1-8B-Instruct",
+            "optimizer": "OPROOptimizer",
+            "optimizer_model": "gpt-4o-mini",
+        }
+    )
+)
+loss_fn = MultiWOZ24Loss()
 for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_cases(mode="test")):
     for turn_idx, turn_case in enumerate(dialogue_case.iterate_dialog_turns()):
         multiwoz_24_system.set_environment(environment=turn_case)
         result = multiwoz_24_system.run()
-        # if turn_idx >= 0:
+        evaluation_result = turn_case.evaluate(result)
+        loss = loss_fn.compute_loss(prediction=result, evaluation_result=evaluation_result, type="joint_goal_accuracy")
+        loss.backward(bandwidth=1)
+    evaluation_result = Multiwoz24Environment.evaluate_test_cases(mode="test", dialogue_indices=dialogue_case.dialogue_idx)
+    loss = loss_fn.compute_loss(prediction=result, evaluation_result=evaluation_result, type="inform_success")
+    loss.backward(bandwidth=1)
+    optimizer.step(
+        performance=f"Inform: {evaluation_result.inform['total']}; Success : {evaluation_result.success['total']}; Joint Goal Accuracy: {evaluation_result.joint_goal_accuracy}",
+        performance_dict={
+            "inform": evaluation_result.inform['total'],
+            "success": evaluation_result.success['total'],
+            "joint_goal_accuracy": evaluation_result.joint_goal_accuracy
+        }
+    )
+    multiwoz_24_system.save_agents(file_name=f"multiwoz_24_agents_{dialogue_idx}.json")
+    print(f"Optimized prompts: {optimizer.prompts}")
+    if dialogue_idx >= 5:
         break
-    # if dialogue_idx >= 0:
-    break
-
-assert isinstance(result, MultiWOZ24MetaData)
-assert isinstance(result.output, str)
-assert isinstance(result.output, GBCBase)
-print("Final Response:", result.output)
-visualize_gbc_tree(result.output, save_path="examples/multiwoz_24_examples/multiwoz_24_gbc_complex_example.png")

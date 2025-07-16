@@ -10,5 +10,8 @@ class GBC:
         elif isinstance(value, list):
             from .gbc_list import GBCList
             return GBCList(value, connections, weights, subject)
+        elif isinstance(value, dict):
+            from .gbc_dict import GBCDict
+            return GBCDict(value, connections, weights, subject)
         else:
             return value  # Fallback to the original value if not a recognized type

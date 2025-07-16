@@ -29,6 +29,7 @@ from .utils import (
     MAX_PRODUCT_INPUT,
     MEAN_L1_NORM,
     MEAN_PRODUCT_INPUT,
+    PRODUCT_PROBS,
     SUM_SQUARES,
     Message,
     SingletonMeta,
@@ -56,7 +57,6 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
             raise ValueError(f"Invalid connection strategy: {self.config.connection_strategy}. Must be one of {CONNECTION_STRATEGIES}.")
         self.connection_strategy = CONNECTION_STRATEGIES[self.config.connection_strategy]
         
-
     def _check_tools(
             self,
             tools: Optional[list] = None,
@@ -225,7 +225,7 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
             # gradient: (batch_size, output_sequence_length, input_sequence_length, hidden_size)
             # input_blocks: (batch_size, blocl_num, 2)
             raise NotImplementedError("Connection weight for fine-grained gradient strategy is not implemented yet.")
-        elif self.gradient_strategy == SUM_SQUARES:
+        elif self.gradient_strategy == SUM_SQUARES or self.gradient_strategy == PRODUCT_PROBS:
             # gradient: (batch_size, input_sequence_length, hidden_size)
             # input_blocks: (batch_size, blocl_num, 2)
             # embedings: (batch_size, input_sequence_length, hidden_size)
@@ -297,6 +297,7 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
         gradients = outputs.gradients
         # If FINEGRAINED: (batch_size, output_sequence_length, input_sequence_length, hidden_size)
         # If SUM_SQUARES: (batch_size, input_sequence_length, hidden_size)
+        # If PRODUCT_PROBS: (batch_size, input_sequence_length, hidden_size)
         embedings = outputs.embeds  # (batch_size, input_sequence_length, hidden_size)
 
         # Get connection weights based on the gradients and input blocks
@@ -339,6 +340,7 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
                         tool_calls=tool_calls,
                     )
                 )
+                (f"BaseLocalModel: tool_calls.get_connections(): {tool_calls.get_connections()}")
             else:
                 output = GBC(
                     output,

@@ -6,6 +6,7 @@
 logs/
 !logs/app.log
 **/scratch*
+wandb/
 
 # Large files
 src/agentchord/environment/multiwoz_24_environment/MultiWOZ2.4/

@@ -12,11 +12,11 @@ TERMINATE_DESCRIPTION = {
             "properties": {
                 "output": {
                     "type": "string",
-                    "description": "The output of the current agent turn."
+                    "description": "The output of the current agent turn. Make it as concise as possible."
                 },
                 "note": {
                     "type": "string",
-                    "description": "A note left for the next agent."
+                    "description": "A note left for the next agent. Make it as concise as possible."
                 },
             },
             "additionalProperties": False,

@@ -21,6 +21,8 @@ def normalize_data(input_data, type):
     elif type == "state":
         new_state = {}
         for slot, value in input_data.items():
+            if len(slot.split('-')) != 2 or not isinstance(value, str):
+                continue  # Skip slots that do not follow the domain-slot format
             domain, slot = slot.split('-')
             slot = slot.lower().replace(' ', '')
             # if slot == "arriveby": slot = "arrive"

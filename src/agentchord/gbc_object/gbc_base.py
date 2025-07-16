@@ -53,6 +53,7 @@ class GBCBase:
         Backward pass for the GBC object.
         """
         from ..agent_system import BaseAgent, Input
+        from ..loss import BaseLoss
 
         # Update the cache with the current subject and self.
         if cache is None:
@@ -68,14 +69,19 @@ class GBCBase:
         if self.subject and (isinstance(self.subject, BaseAgent) or isinstance(self.subject, Input)):
             self.subject.append_optimization_info(cache)
         # Select the strongest connections based on the weights. Break ties in random order.
-        connections_and_weights = list(zip(self.connections, self.weights))
-        shuffled_connections_and_weights = random.sample(connections_and_weights, len(connections_and_weights))
-        sorted_indices = sorted(
-            range(len(shuffled_connections_and_weights)),
-            key=lambda i: shuffled_connections_and_weights[i][1],
-            reverse=True
-        )[:bandwidth]
-        selected_connections = [shuffled_connections_and_weights[i][0] for i in sorted_indices]
+        if (self.subject and isinstance(self.subject, BaseLoss)) \
+            or all(weight  == 1.0 for weight in self.weights) \
+            or not self.connections:
+            selected_connections = self.connections
+        else:
+            connections_and_weights = list(zip(self.connections, self.weights))
+            shuffled_connections_and_weights = random.sample(connections_and_weights, len(connections_and_weights))
+            sorted_indices = sorted(
+                range(len(shuffled_connections_and_weights)),
+                key=lambda i: shuffled_connections_and_weights[i][1],
+                reverse=True
+            )[:bandwidth]
+            selected_connections = [shuffled_connections_and_weights[i][0] for i in sorted_indices]
         for connection in selected_connections:
             if isinstance(connection, GBCBase):
                 connection.backward(bandwidth=bandwidth, cache=cache)

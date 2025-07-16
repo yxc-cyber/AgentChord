@@ -61,7 +61,7 @@ class GBCList(GBCBase, list):
         new_iterable = deepcopy(list(self), memo)
         new_connections = deepcopy(self.get_connections(), memo)
         new_weights = deepcopy(self.get_weights(), memo)
-        new_subject = deepcopy(self.get_subject(), memo)
+        new_subject = self.get_subject(), memo
         new_gbc_list = GBCList(
             new_iterable, 
             connections=new_connections, 

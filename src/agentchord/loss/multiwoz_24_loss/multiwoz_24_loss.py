@@ -56,10 +56,15 @@ class MultiWOZ24Loss(BaseLoss):
             false_positive=json.dumps(joint_goal_accuracy_detail.get("false_positive", {})),
             false_negative=json.dumps(joint_goal_accuracy_detail.get("false_negative", []))
         )
-        if isinstance(system_response, GBCBase):
-            loss = GBC(loss, connections=system_response.get_connections(), weights=[1.0])
+        if isinstance(dialogue_state, GBCBase):
+            loss = GBC(
+                loss,
+                connections=dialogue_state.get_connections(),
+                weights=[1.0] * len(dialogue_state.get_connections()),
+                subject=self
+            )
         else:
-            loss = GBC(loss, connections=system_response, weights=1.0)
+            loss = GBC(loss, connections=dialogue_state, weights=1.0, subject=self)
         return loss
 
     def _compute_inform_success_loss(
@@ -106,6 +111,7 @@ class MultiWOZ24Loss(BaseLoss):
         loss = GBC(
             loss,
             connections=connections,
-            weights=[1.0]* len(connections)
+            weights=[1.0]* len(connections),
+            subject=self
         )
         return loss

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Self
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Self
 
 from ..environment import BaseEnvironment, InnerEnvironment
 from ..metadata import BaseMetaData
@@ -7,6 +7,8 @@ from ..utils import Action, Logger
 
 if TYPE_CHECKING:
     from .base_agent import BaseAgent
+
+import json
 
 
 class BaseAgentSystem:
@@ -202,12 +204,35 @@ class BaseAgentSystem:
             subsystem = self.subsystems[subsystem_name]
             subsystem.set_log_redirection(file_name)
 
-    def get_agents(self) -> List["BaseAgent"]:
+    def get_agents(self) -> Dict[str, "BaseAgent"]:
         agents = dict()
         for subsystem_name in self.subsystem_sequence:
             subsystem = self.subsystems[subsystem_name]
             agents.update(subsystem.get_agents())
         return agents
+    
+    def save_agents(self, file_name: str = "agents.json"):
+        """
+        Save the agents to a file.
+        :param file_name: The name of the file to save the agents to.
+        """
+        agents = self.get_agents()
+        prompts = {agent_name: agent.get_prompt() for agent_name, agent in agents.items()}
+        with open(file_name, 'w') as file:
+            json.dump(prompts, file, indent=2)
+
+    def load_agents(self, file_name: str = "agents.json"):
+        """
+        Load the agents from a file.
+        :param file_name: The name of the file to load the agents from.
+        """
+        with open(file_name, 'r') as file:
+            prompts = json.load(file)
+        for agent_name, prompt in prompts.items():
+            if agent_name in self.get_agents():
+                self.get_agents()[agent_name].set_prompt(prompt)
+            else:
+                raise Exception(f"Agent {agent_name} not found in the system.")
 
     def __repr__(self):
         return self.system_name

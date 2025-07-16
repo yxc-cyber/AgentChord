@@ -4,6 +4,7 @@ from typing import Dict, Optional, Union
 
 from ...agent_system import BaseAgent, Input
 from ...model import ModelConfig, ModelFactory
+from ...utils import WandBConfig
 from ..base_optimizer import BaseOptimizer
 from .meta_prompt import META_PROMPT_INPUT, META_PROMPT_INSTRUCTION
 
@@ -19,21 +20,27 @@ class OPROOptimizer(BaseOptimizer):
             agents: Dict[str, BaseAgent],
             model_config: ModelConfig,
             name: str = "OPROOptimizer",
-            log_name: str = ""
+            log_name: str = "",
+            wandb_config: Optional[WandBConfig] = None
         ):
         """
         Initialize the OPRO optimizer with the agent system.
         :param agents: The agents to be optimized.
         """
-        super().__init__(agents=agents, name=name, log_name=log_name)
+        super().__init__(agents=agents, name=name, log_name=log_name, wandb_config=wandb_config)
         self.model_config = model_config
         self.model = ModelFactory(self.model_config).create_model()
 
-    def step(self, performance: str) -> None:
+    def step(self, performance: str, performance_dict: Optional[Dict[str, Union[int, float, str]]] = None) -> None:
         """ 
         Perform a single optimization step.
         This method will use the model to optimize the prompts of the agents based on the optimization history and trajectories.
         """
+        if performance_dict:
+            self.logger.debug(f"Performance dictionary: {performance_dict}")
+            if self.wandb_config:
+                self.report_to_wandb(performance_dict)
+
         self.update_attributes()
         self.update_optimization_history(performance)
 

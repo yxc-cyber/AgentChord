@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from .gbc_base import GBCBase
 
 
@@ -59,3 +61,20 @@ class GBCStr(GBCBase, str):
                 weights=[1.0], 
                 subject=f"Item Access Operation"
             )
+        
+    def __deepcopy__(self, memo=None):
+        """
+        Override the deepcopy method to ensure proper copying of GBCStr.
+        """
+        new_value = deepcopy(str(self), memo)
+        new_connections = deepcopy(self.get_connections(), memo)
+        new_weights = deepcopy(self.get_weights(), memo)
+        new_subject = self.get_subject()
+        new_gbc_str = GBCStr(
+            new_value, 
+            connections=new_connections, 
+            weights=new_weights, 
+            subject=new_subject
+        )
+        memo[id(self)] = new_gbc_str
+        return new_gbc_str

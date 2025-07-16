@@ -9,9 +9,11 @@ from ..gbc_object import GBCList, GBCStr
 # Gradient strategy constants
 FINEGRAINED = 0
 SUM_SQUARES = 1
+PRODUCT_PROBS = 2
 GRADIENT_STRATEGIES = {
     "finegrained": FINEGRAINED,
     "sum_squares": SUM_SQUARES,
+    "product_probs": PRODUCT_PROBS,
 }
 
 # Connection strategy constants

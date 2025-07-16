@@ -128,7 +128,11 @@ class Multiwoz24System(BaseAgentSystem):
                 dialogue_state = json.loads(match.group(2))
             else:
                 dialogue_state = dict()
-        metadata.dialogue_state = dialogue_state
+        metadata.dialogue_state = GBC(
+            dialogue_state,
+            connections=metadata.output.get_connections(),
+            weights=[1.0]
+        )
         metadata.input = [
             GBC(
                 f"Dialogue History:\n{grounding_utterance}",

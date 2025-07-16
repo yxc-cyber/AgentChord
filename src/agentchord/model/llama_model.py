@@ -2,6 +2,7 @@ import re
 from typing import TYPE_CHECKING, Callable, List, Optional, Union
 
 import torch
+import torch.nn.functional as F
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Function
 from torch.func import jacrev, vmap
@@ -45,7 +46,7 @@ if TYPE_CHECKING:
 
 from .base_local_model import BaseLocalModel
 from .model_config import ModelConfig
-from .utils import FINEGRAINED, SUM_SQUARES, parse_json_string
+from .utils import FINEGRAINED, PRODUCT_PROBS, SUM_SQUARES, parse_json_string
 
 
 class LlamaForCausalLM_GBC(LlamaForCausalLM):
@@ -73,6 +74,7 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
         self,
         inputs_embeds: List[torch.FloatTensor],
         logits: torch.FloatTensor,
+        log_probs: torch.FloatTensor,
     ):
         """
         Calculate the gradient of the logits with respect to the inputs_embeds.
@@ -103,12 +105,22 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
                     retain_graph=True,
                 )[0]  # (input_sequence_length, hidden_size)
                 gradients.append(grads)
+            elif self.gradient_strategy == PRODUCT_PROBS:
+                probs_product = log_probs[batch_index].sum().exp()  # Product of probabilities
+                # Compute the gradient of the product of probabilities with respect to the inputs_embeds
+                grads = torch.autograd.grad(
+                    outputs=probs_product,
+                    inputs=inputs_embeds[batch_index],
+                    retain_graph=True,
+                )[0] # (input_sequence_length, hidden_size)
+                gradients.append(grads)
             else:
                 raise NotImplementedError(f"Gradient strategy {self.gradient_strategy} is not implemented.")
         # Concatenate the gradients for all batches
         gradients = torch.stack(gradients, dim=0)
         # If FINEGRAINED: (batch_size, output_sequence_length, input_sequence_length, hidden_size)
         # If SUM_SQUARES: (batch_size, input_sequence_length, hidden_size)
+        # If PRODUCT_PROBS: (batch_size, input_sequence_length, hidden_size)
         return gradients
 
     @can_return_tuple
@@ -594,12 +606,15 @@ class LlamaForCausalLM_GBC(LlamaForCausalLM):
         # Compute the gradient of the logits with respect to the inputs_embeds
         input_ids = result.sequences  # (batch_size, total_sequence_length)
         logits = torch.stack(result.logits, dim=1)  # (batch_size, new_sequence_length, vocab_size)
+        log_probs = F.log_softmax(logits, dim=-1)  # (batch_size, new_sequence_length, vocab_size)
         picked_input_ids = input_ids[:, -logits.shape[1]:]  # (batch_size, new_sequence_length)
         picked_logits = logits.gather(2, picked_input_ids.unsqueeze(-1)).squeeze(-1)  # (batch_size, new_sequence_length)
-        gradients = self.calculate_gradient(self.initial_inputs_embeds, picked_logits)
+        picked_log_probs = log_probs.gather(2, picked_input_ids.unsqueeze(-1)).squeeze(-1)  # (batch_size, new_sequence_length)
+        gradients = self.calculate_gradient(self.initial_inputs_embeds, picked_logits, picked_log_probs)
         result.gradients = gradients
         # If FINEGRAINED: (batch_size, output_sequence_length, input_sequence_length, hidden_size)
         # If SUM_SQUARES: (batch_size, input_sequence_length, hidden_size)
+        # If PRODUCT_PROBS: (batch_size, input_sequence_length, hidden_size)
         result.embeds = torch.stack(self.initial_inputs_embeds, dim=0)  # (batch_size, input_sequence_length, hidden_size)
 
         # Reset initial input embedding to None
