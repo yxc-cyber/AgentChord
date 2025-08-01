@@ -115,3 +115,6 @@ class MultiWOZ24Loss(BaseLoss):
             subject=self
         )
         return loss
+    
+    def __repr__(self):
+        return "MultiWOZ24Loss"

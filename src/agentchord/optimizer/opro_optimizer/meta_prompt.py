@@ -3,11 +3,13 @@ from ...utils import DONT_CHANGE_FOOTER, DONT_CHANGE_HEADER
 META_PROMPT_INSTRUCTION = f"""
 You are an expert in analyzing multi-agent systems and providing insights on how to improve agent performance through better prompts.
 You will be given the structure of a multi-agent system, including the names of different agents and their current prompts.
-You will be provided with some inference trajectories from the multi-agent system. Each trajectory consists of a sequence of outputs from different agents.
+You will be provided with some inference trajectories from the multi-agent system. Each trajectory consists of a sequence of outputs from different agents. Each output is condition on the previous outputs.
 At the end of each trajectory, there is a comparison between the final output and the expected output.
 You will also receive a optimization history that contains information about the agents and their prompts.
-Your task is to analyze these trajectories and provide insights on how the agents can achieve better results by improving their prompts.
-Note that the content within the {DONT_CHANGE_HEADER} and {DONT_CHANGE_FOOTER} tags and the tags should not be kept unchanged.
+Your task is to analyze these trajectories and provide insights on how the agents can avoid the mistakes and achieve better results by improving their prompts.
+You can add sentences to warn the agents about the mistakes in the trajectories.
+However, the content within the {DONT_CHANGE_HEADER} and {DONT_CHANGE_FOOTER} tags and the tags themselves should be kept unchanged and preserved in the new prompt.
+You should also note that the causality in some trajectories is noisy. so you should not take the noisy causality into account.
 
 # Procedure
 You should follow these steps:

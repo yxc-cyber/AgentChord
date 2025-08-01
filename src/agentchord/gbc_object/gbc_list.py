@@ -14,7 +14,10 @@ class GBCList(GBCBase, list):
         Create a new GBCList instance.
         """
         super().__init__(iterable or [])
-        self.bind_connections(connections or [], weights or [])
+        self.bind_connections(
+            connections = connections if connections is not None else [],
+            weights = weights if weights is not None else []
+        )
         self.bind_subject(subject or "Unnamed Subject")
 
     def __add__(self, other):

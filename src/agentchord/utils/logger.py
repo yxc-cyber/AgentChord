@@ -7,10 +7,13 @@ LOG_PATH = "logs"
 
 class Logger:
     logger_names = list()
+    handlers = dict()
 
     def __init__(self, name: str, file_name: str = ""):
-        if name in Logger.logger_names:
+        if name in self.logger_names:
             raise Exception(f"Logger {name} is already registered!")
+        else:
+            self.logger_names.append(name)
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.DEBUG)
         self.formatter = logging.Formatter(
@@ -19,7 +22,11 @@ class Logger:
         self.stream_handler = logging.StreamHandler()
         self.stream_handler.setFormatter(self.formatter)
         self.file_path = os.path.join(LOG_PATH, f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log") if not file_name else os.path.join(LOG_PATH, file_name)
-        self.file_handler = RotatingFileHandler(self.file_path, maxBytes=10485760, backupCount=5)
+        if self.file_path in self.handlers:
+            self.file_handler = self.handlers[self.file_path]
+        else:
+            self.file_handler = RotatingFileHandler(self.file_path, maxBytes=10485760, backupCount=5)
+            self.handlers[self.file_path] = self.file_handler
         self.file_handler.setFormatter(self.formatter)
         self.logger.addHandler(self.stream_handler)
         self.logger.addHandler(self.file_handler)

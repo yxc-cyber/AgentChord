@@ -13,7 +13,10 @@ class GBCDict(GBCBase, dict):
         Create a new GBCDict instance.
         """
         super().__init__(map or {})
-        self.bind_connections(connections or [], weights or [])
+        self.bind_connections(
+            connections = connections if connections is not None else [],
+            weights = weights if weights is not None else []
+        )
         self.bind_subject(subject or "Unnamed Subject")
 
     def __deepcopy__(self, memo=None):

@@ -21,3 +21,6 @@ class BaseLoss:
             The computed loss value.
         """
         raise NotImplementedError("Subclasses should implement this method.")
+    
+    def __repr__(self):
+        return "BaseLoss"

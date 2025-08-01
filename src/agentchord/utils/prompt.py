@@ -26,6 +26,10 @@ The previous agent did not terminate by calling the "terminate" function. Instea
 This might be what the previous agent wanted to leave for you.
 """.strip()
 
+NOTE_TOO_MANY_ACTIONS = """
+The previous agent terminated by calling the "terminate" function because it performed too many actions and exceeded the maximum number of actions allowed.
+""".strip()
+
 OUTPUT_NOTE_INFO = """
 # Output
 <output>
@@ -46,7 +50,7 @@ TOOL_INFO = """
 <tool_parameters>
 {tool_parameters}
 </tool_parameters>
-"""
+""".strip()
 
 TOOL_RESULT_INFO = """
 # Tool Result
@@ -57,3 +61,12 @@ TOOL_RESULT_INFO = """
 
 DONT_CHANGE_HEADER = "<DONT_CHANGE>"
 DONT_CHANGE_FOOTER = "</DONT_CHANGE>"
+
+PROMPT_TEMPLATE = f"""
+{{prompt}}
+
+**Important Note**
+When you receive inputs from previous agents, they will be wrapped in {INPUT_HEADER} and {INPUT_FOOTER} tags and separated by {INPUT_SEPARATOR}.
+Some inputs may be attached with a note, which contains additional information beyond the input itself.
+Some inputs may be useless, so you only focus on the useful inputs.
+""".strip()

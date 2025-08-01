@@ -13,7 +13,10 @@ class GBCStr(GBCBase, str):
         Create a new GBCStr instance.
         """
         instance = super().__new__(cls, value)
-        instance.bind_connections(connections or [], weights or [])
+        instance.bind_connections(
+            connections = connections if connections is not None else [],
+            weights = weights if weights is not None else []
+        )
         instance.bind_subject(subject or "Unnamed Subject")
         return instance
     

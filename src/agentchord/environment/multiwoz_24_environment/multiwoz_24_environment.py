@@ -141,7 +141,8 @@ class Multiwoz24Environment(BaseEnvironment):
     def iterate_test_cases(cls, mode: str) -> Iterator[Self]:
         cls.pre_initialize()
         for dialogue_idx in cls.dialogues[mode]:
-            yield cls(mode=mode, dialogue_idx=dialogue_idx)
+            if len(cls.dialogues[mode][dialogue_idx]["dialogue"]) >= 2:  # Ensure there is at least one user turn and one system turn
+                yield cls(mode=mode, dialogue_idx=dialogue_idx)
 
     @classmethod
     def evaluate_test_cases(cls, mode: str, dialogue_indices: Optional[Union[List[str], str]] = None) -> MultiWOZ24MetaData:

@@ -539,8 +539,14 @@ class Multiwoz24System(BaseAgentSystem):
         final_state_connections = list()
         final_tool = list()
         for single_metadata in metadata:
-            final_input.append(single_metadata.output)
-            final_note.append(single_metadata.note)
+            if isinstance(single_metadata.output, list):
+                final_input.extend(single_metadata.output)
+            else:
+                final_input.append(single_metadata.output)
+            if isinstance(single_metadata.note, list):
+                final_note.extend(single_metadata.note)
+            else:
+                final_note.append(single_metadata.note)
             final_state.update(single_metadata.dialogue_state)
             final_state_connections.extend(single_metadata.dialogue_state.get_connections())
             final_tool.extend(single_metadata.tool)
@@ -604,3 +610,4 @@ for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_
     print(f"Optimized prompts: {optimizer.prompts}")
     if dialogue_idx >= 5:
         break
+optimizer.finish_wandb()

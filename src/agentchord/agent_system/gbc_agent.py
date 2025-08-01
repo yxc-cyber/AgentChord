@@ -13,6 +13,7 @@ from ..utils import (
     INPUT_SEPARATOR,
     INPUT_WITH_NOTE,
     NOTE_NO_ACTION,
+    NOTE_TOO_MANY_ACTIONS,
     OUTPUT_NOTE_INFO,
     TOOL_FOOTER,
     TOOL_HEADER,
@@ -50,7 +51,6 @@ class GBCAgent(BaseAgent):
         previous_tool_usage = meta_data.tool
         meta_data.input = ""
         meta_data.note = ""
-        # meta_data.tool = list()  # Keep the previous tool usage
         meta_data.output = ""
 
         # Prepare the input content and previous note
@@ -116,6 +116,8 @@ class GBCAgent(BaseAgent):
         while not terminate and loop_counter < self.maximum_loops:
             self.logger.debug(f"Message history: {self.messages}")
             output_message = self.completion(self.messages)
+            if output_message.tool_calls:
+                output_message.tool_calls = output_message.tool_calls[:1]  # Limit to the first tool call for simplicity
             self.logger.debug(f"New message: {output_message.json()}")
             self.messages.append(output_message.json())
             if output_message.tool_calls:
@@ -123,11 +125,20 @@ class GBCAgent(BaseAgent):
                 for tool_call in output_message.tool_calls:
                     tool_call_id = tool_call.id
                     tool_name = tool_call.function.name.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, "")
-                    tool_arguments = json.loads(tool_call.function.arguments.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, ""))
+                    try:
+                        tool_arguments = json.loads(tool_call.function.arguments.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, ""))
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"Failed to decode tool arguments: {tool_call.function.arguments}")
+                        tool_arguments = dict()
                     if tool_name == self.inner_environment.TERMINATE:
                         tool_result = self.inner_environment.apply_tool(tool_name, tool_arguments)
                         self.logger.debug(f"Tool result: {tool_result}")
                         tool_result_dict = json.loads(tool_result)
+                        if "output" not in tool_result_dict:
+                            tool_result_dict["output"] = ""
+                        if "note" not in tool_result_dict:
+                            assert "message" in tool_result_dict
+                            tool_result_dict["note"] = tool_result_dict["message"]
                         output_note_info = OUTPUT_NOTE_INFO.format(
                             output = tool_result_dict["output"] or EMPTY_PLACEHOLDER,
                             note = tool_result_dict["note"] or EMPTY_PLACEHOLDER
@@ -139,13 +150,13 @@ class GBCAgent(BaseAgent):
                             subject=self
                         )
                         meta_data.output = GBC(
-                            tool_result_dict["output"], 
+                            str(tool_result_dict["output"]), 
                             connections=output_note_info,
                             weights=1.0,
                             subject=self
                         )
                         meta_data.note = GBC(
-                            tool_result_dict["note"],
+                            str(tool_result_dict["note"]),
                             connections=output_note_info,
                             weights=1.0,
                             subject=self
@@ -219,5 +230,29 @@ class GBCAgent(BaseAgent):
                 )
                 terminate = True
             loop_counter += 1
+        if loop_counter >= self.maximum_loops and not (isinstance(meta_data.output, GBCBase) and isinstance(meta_data.note, GBCBase)):
+            self.logger.warning(f"Maximum loops reached ({self.maximum_loops}) without termination. Returning empty output.")
+            output_note_info = OUTPUT_NOTE_INFO.format(
+                output = EMPTY_PLACEHOLDER,
+                note = NOTE_TOO_MANY_ACTIONS
+            )
+            output_note_info = GBC(
+                output_note_info,
+                connections=self.messages[-1]["content"].get_connections(),
+                weights=self.messages[-1]["content"].get_weights(),
+                subject=self
+            )
+            meta_data.output = GBC(
+                "",
+                connections=output_note_info,
+                weights=1.0,
+                subject=self
+            )
+            meta_data.note = GBC(
+                NOTE_TOO_MANY_ACTIONS,
+                connections=output_note_info,
+                weights=1.0,
+                subject=self
+            )
         self.logger.debug(f"Returning {meta_data}")
         return meta_data

@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy
 from typing import Dict, Optional, Union
 
@@ -105,3 +106,22 @@ class BaseOptimizer:
         import wandb
         wandb.finish()
         self.logger.debug("Weights & Biases run finished.")
+
+    def save_optimizer_state(self, file_path: str):
+        """
+        Save the state of the optimizer to a file.
+        :param file_path: The path to the file where the state will be saved.
+        """
+        with open(file_path, 'w') as f:
+            json.dump(self.optimization_history, f, indent=2)
+        self.logger.debug(f"Optimizer state saved to {file_path}")
+
+    def load_optimizer_state(self, file_path: str):
+        """
+        Load the state of the optimizer from a file.
+        :param file_path: The path to the file from which the state will be loaded.
+        """
+        with open(file_path, 'r') as f:
+            self.optimization_history = json.load(f)
+        self.logger.debug(f"Optimizer state loaded from {file_path}")
+        self.update_attributes()

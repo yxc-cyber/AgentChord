@@ -13,6 +13,7 @@ from ..utils import (
     INPUT_SEPARATOR,
     INPUT_WITH_NOTE,
     NOTE_NO_ACTION,
+    PROMPT_TEMPLATE,
     TOOL_FOOTER,
     TOOL_HEADER,
 )
@@ -93,17 +94,28 @@ class BaseAgent(BaseAgentSystem):
         while not terminate and loop_counter < self.maximum_loops:
             self.logger.debug(f"Message history: {self.messages}")
             output_message = self.completion(self.messages)
+            if output_message.tool_calls:
+                output_message.tool_calls = output_message.tool_calls[:1]  # Limit to the first tool call for simplicity
             self.logger.debug(f"New message: {output_message.json()}")
             self.messages.append(output_message.json())
             if output_message.tool_calls:
                 for tool_call in output_message.tool_calls:
                     tool_call_id = tool_call.id
                     tool_name = tool_call.function.name.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, "")
-                    tool_arguments = json.loads(tool_call.function.arguments.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, ""))
+                    try:
+                        tool_arguments = json.loads(tool_call.function.arguments.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, ""))
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"Failed to decode tool arguments: {tool_call.function.arguments}")
+                        tool_arguments = dict()
                     if tool_name == self.inner_environment.TERMINATE:
                         tool_result = self.inner_environment.apply_tool(tool_name, tool_arguments)
                         self.logger.debug(f"Tool result: {tool_result}")
                         tool_result_dict = json.loads(tool_result)
+                        if "output" not in tool_result_dict:
+                            tool_result_dict["output"] = ""
+                        if "note" not in tool_result_dict:
+                            assert "message" in tool_result_dict
+                            tool_result_dict["note"] = tool_result_dict["message"]
                         meta_data.output = tool_result_dict["output"]
                         meta_data.note = tool_result_dict["note"]
                         terminate = True
@@ -146,7 +158,7 @@ class BaseAgent(BaseAgentSystem):
         return final_data
 
     def messages_initialization(self):
-        self.messages = [{"role": "system", "content": self.prompt}]
+        self.messages = [{"role": "system", "content": PROMPT_TEMPLATE.format(prompt=self.prompt)}]
 
     def _get_pipeline_description_list(self) -> list:
         return list()

@@ -98,6 +98,22 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
         if not conversations_processed:
             raise ValueError("No conversations processed. Please check the input messages.")
         return conversations_processed
+    
+    def _find_initial_tag_index(self, messages_processed: str, tag: str) -> int:
+        """
+        Find the index of a specific tag in the processed messages.
+        Args:
+            messages_processed (str): The processed messages string.
+            tag (str): The tag to find.
+        Returns:
+            int: The index of the tag in the processed messages, or -1 if not found.
+        """
+        first_occurrence = messages_processed.find(tag)
+        second_occurrence = messages_processed.find(tag, first_occurrence + len(tag))
+        if second_occurrence == -1:
+            return first_occurrence
+        else:
+            return second_occurrence
 
     def _get_input_blocks_and_encodings(self, conversations_processed: List[str]) -> Tuple[List[List[Tuple[int, int]]], BatchEncoding]:
         """
@@ -116,10 +132,10 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
         tool_header_indices = list()
         tool_footer_indices = list()
         for messages_processed in conversations_processed:
-            input_header_indices.append(messages_processed.find(INPUT_HEADER))
-            input_footer_indices.append(messages_processed.find(INPUT_FOOTER))
+            input_header_indices.append(self._find_initial_tag_index(messages_processed, INPUT_HEADER))
+            input_footer_indices.append(self._find_initial_tag_index(messages_processed, INPUT_FOOTER))
             input_separator_indices_temp = []
-            sep_pos = 0
+            sep_pos = messages_processed.find(INPUT_SEPARATOR) + len(INPUT_SEPARATOR)
             while True:
                 sep_pos = messages_processed.find(INPUT_SEPARATOR, sep_pos)
                 if sep_pos == -1:
