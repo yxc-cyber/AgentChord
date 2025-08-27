@@ -23,6 +23,8 @@ def normalize_data(input_data, type):
         for slot, value in input_data.items():
             if len(slot.split('-')) != 2 or not isinstance(value, str):
                 continue  # Skip slots that do not follow the domain-slot format
+            if value is None or value.lower() == "dont care" or value.lower() == "dontcare" or value.lower() == "null" or value.lower() == "none" or value.lower() == "unknown":
+                continue  # Skip slots with "dont care" values
             domain, slot = slot.split('-')
             slot = slot.lower().replace(' ', '')
             # if slot == "arriveby": slot = "arrive"

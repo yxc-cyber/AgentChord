@@ -84,7 +84,8 @@ class ParallelBlock(BaseAgentSystem):
                     final_note.extend(new_meta_data.note)
                 else:
                     final_note.append(new_meta_data.note)
-                final_tool.extend(new_meta_data.tool)
+                # final_tool.extend(new_meta_data.tool)
+                final_tool = new_meta_data.tool
                 # Early termination if the environment is done
                 if self.environment.is_done():
                     self.subsystem_sequence.set_done()

@@ -189,6 +189,10 @@ def insertSpace(token, text):
 # The following function is adapted from uiuc-conversational-ai-lab/multiwoz-helper
 # https://github.com/uiuc-conversational-ai-lab/multiwoz-helper/blob/main/utils/nlp.py#L36
 def normalize(text):
+    # truncate to avoid too long input
+    if len(text) > 2000:
+        text = text[:2000]
+
     # lower case every word
     text = text.lower()
 
@@ -237,6 +241,7 @@ def normalize(text):
 
     # replace other special characters
     text = text.replace("-", " ")
+    text = text.replace("*", " ")
     text = re.sub(r"[\":\<>@\(\)]", "", text)
 
     # insert white space before and after tokens:

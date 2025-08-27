@@ -1,7 +1,7 @@
 import json
 import os
 import random
-from typing import Iterator, List, Optional, Self, Tuple, Union
+from typing import Iterator, List, Literal, Optional, Self, Tuple, Union
 
 from fuzzywuzzy import fuzz
 from git import Repo
@@ -138,14 +138,22 @@ class Multiwoz24Environment(BaseEnvironment):
             cls.pre_initialized = True
 
     @classmethod
-    def iterate_test_cases(cls, mode: str) -> Iterator[Self]:
+    def iterate_test_cases(cls, mode: Literal["train", "dev", "test"], random_seed: Optional[int] = None) -> Iterator[Self]:
         cls.pre_initialize()
-        for dialogue_idx in cls.dialogues[mode]:
-            if len(cls.dialogues[mode][dialogue_idx]["dialogue"]) >= 2:  # Ensure there is at least one user turn and one system turn
-                yield cls(mode=mode, dialogue_idx=dialogue_idx)
+        if random_seed is None:
+            for dialogue_idx in cls.dialogues[mode]:
+                if len(cls.dialogues[mode][dialogue_idx]["dialogue"]) >= 2:  # Ensure there is at least one user turn and one system turn
+                    yield cls(mode=mode, dialogue_idx=dialogue_idx)
+        else:
+            random.seed(random_seed)
+            dialogue_indices = list(cls.dialogues[mode].keys())
+            random.shuffle(dialogue_indices)
+            for dialogue_idx in dialogue_indices:
+                if len(cls.dialogues[mode][dialogue_idx]["dialogue"]) >= 2:  # Ensure there is at least one user turn and one system turn
+                    yield cls(mode=mode, dialogue_idx=dialogue_idx)
 
     @classmethod
-    def evaluate_test_cases(cls, mode: str, dialogue_indices: Optional[Union[List[str], str]] = None) -> MultiWOZ24MetaData:
+    def evaluate_test_cases(cls, mode: Literal["train", "dev", "test"], dialogue_indices: Optional[Union[List[str], str]] = None) -> MultiWOZ24MetaData:
         cls.pre_initialize()
         matched_turns, true_positive, false_positive, false_negative, total_turns = 0.0, 0.0, 0.0, 0.0, 0.0
         total_inform, total_success, total_dialogues = 0.0, 0.0, 0.0
@@ -224,7 +232,7 @@ class Multiwoz24Environment(BaseEnvironment):
             slot_f1=slot_f1,
         )
 
-    def __init__(self, mode: str = "test", dialogue_idx: str = "", turn_idx: int = 0, fuzzy_ratio: int = 80):
+    def __init__(self, mode: Literal["train", "dev", "test"] = "test", dialogue_idx: str = "", turn_idx: int = 0, fuzzy_ratio: int = 80):
         from ...agent_system import Input
         from ...gbc_object import GBC
 
@@ -276,6 +284,7 @@ class Multiwoz24Environment(BaseEnvironment):
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].groundtruth_dialogue_state = metadata.groundtruth_dialogue_state
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].dialogue_state = dialogue_state
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].system_response = system_response
+        self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].tool = tool_usage
         # Compute the dialogue state accuracy
         matched_turns, true_positive, false_positive, false_negative, joint_goal_accuracy_detail = self.compute_dst(dialogue_state)
         self.evaluation_record[self.mode][self.dialogue_idx][self.turn_idx].matched_turns += matched_turns
@@ -412,7 +421,7 @@ class Multiwoz24Environment(BaseEnvironment):
                 # Compare the venues that could be offered by the system and the venues that match the information
                 # in dialg goals, these two sets do not have to match exactly and there are two ways to compare them:
                 # Venues are matching if the goal venues are a super set of the possibly offered venues.
-                offered_venues_set = set(offered_venues)
+                offered_venues_set = set(offered_venues[domain])
                 goal_venues_set = set(goal_venues)
                 if set(offered_venues_set).issubset(goal_venues_set):
                     match_domain = True
@@ -445,7 +454,7 @@ class Multiwoz24Environment(BaseEnvironment):
                             valid = False
                         if query_key == DEPARTURE_TIME_KEY and time_str_to_minutes(database_value) < time_str_to_minutes(query_value):
                             valid = False
-                        if query_key not in FUZZY_KEYS[domain] and query_key not in ["arriveBy", "leaveAt"] and database_value != query_value:
+                        if query_key not in FUZZY_KEYS[domain] and query_key not in ["arriveBy", "leaveAt"] and str(database_value).lower() != str(query_value).lower():
                             valid = False
                 if not valid:
                     break
@@ -535,7 +544,7 @@ class Multiwoz24Environment(BaseEnvironment):
                 query_value = query[primary_key]
                 if (primary_key in FUZZY_KEYS[domain]) and (fuzz.partial_ratio(database_value, query_value) >= self.fuzzy_ratio) or (fuzz.partial_ratio(query_value, database_value) >= self.fuzzy_ratio):
                     found = True
-                if primary_key not in FUZZY_KEYS[domain] and database_value == query_value:
+                if primary_key not in FUZZY_KEYS[domain] and str(database_value).lower() == str(query_value).lower():
                     found = True
         if found:
             return json.dumps({"result": {"reference": generate_reference_number(8)}, "message": "Success! Reference number is returned!"})

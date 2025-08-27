@@ -12,10 +12,15 @@ class BaseMetaData:
     sample_id: int = 0
 
     def to_json(self, file_name: Optional[str]) -> dict:
+        def convert_sets(obj):
+            if isinstance(obj, set):
+                return list(obj)
+            raise TypeError(f"Type {type(obj)} not serializable")
+
         result_json = {key: value for key, value in asdict(self).items() if value}
         if file_name:
             with open(file_name, "w") as file:
-                json.dump(result_json, file, indent=4)
+                json.dump(result_json, file, indent=4, default=convert_sets)
         return result_json
     
     def load_non_basic_attributes(self, meta_data: Self) -> None:

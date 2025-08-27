@@ -16,7 +16,7 @@ TERMINATE_DESCRIPTION = {
                 },
                 "note": {
                     "type": "string",
-                    "description": "A note left for the next agent. Make it as concise as possible."
+                    "description": "A note left for the next agent, additional information that might be useful for the next agent. Can be empty. Make it as concise as possible."
                 },
             },
             "additionalProperties": False,
@@ -33,4 +33,4 @@ class InnerEnvironment(BaseEnvironment):
         self.register_tool(self.TERMINATE, TERMINATE_DESCRIPTION, self._terminate)
 
     def _terminate(self, output: str, note: str) -> str:
-        return json.dumps({"output": output, "note": note})
+        return json.dumps({"output": str(output), "note": str(note)})

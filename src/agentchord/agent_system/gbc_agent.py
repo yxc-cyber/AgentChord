@@ -115,7 +115,10 @@ class GBCAgent(BaseAgent):
         connection_pool = copy(content.get_connections())
         while not terminate and loop_counter < self.maximum_loops:
             self.logger.debug(f"Message history: {self.messages}")
-            output_message = self.completion(self.messages)
+            if loop_counter == self.maximum_loops - 1:
+                output_message = self.completion(self.messages, [self.inner_environment.TERMINATE])
+            else:
+                output_message = self.completion(self.messages)
             if output_message.tool_calls:
                 output_message.tool_calls = output_message.tool_calls[:1]  # Limit to the first tool call for simplicity
             self.logger.debug(f"New message: {output_message.json()}")

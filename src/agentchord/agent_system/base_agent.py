@@ -44,11 +44,23 @@ class BaseAgent(BaseAgentSystem):
         meta_data = self.execution(meta_data)
         return meta_data
     
-    def completion(self, messages: List[dict]) -> Message:
-        output_message = self.model.completion(
-            messages=messages,
-            tools=self.tool_descriptions
-        ).choices[0].message
+    def completion(self, messages: List[dict], tools: Optional[List[str]] = None) -> Message:
+        if tools is not None:
+            tool_descriptions = list()
+            for tool in tools:
+                if tool in self.tool_description_dict:
+                    tool_descriptions.append(self.tool_description_dict[tool])
+                else:
+                    raise ValueError(f"Tool {tool} not found in tool descriptions.")
+            output_message = self.model.completion(
+                messages=messages,
+                tools=tool_descriptions
+            ).choices[0].message
+        else:
+            output_message = self.model.completion(
+                messages=messages,
+                tools=self.tool_descriptions
+            ).choices[0].message
         return output_message
     
     def execution(self, meta_data: BaseMetaData) -> BaseMetaData:
@@ -93,7 +105,10 @@ class BaseAgent(BaseAgentSystem):
         loop_counter = 0
         while not terminate and loop_counter < self.maximum_loops:
             self.logger.debug(f"Message history: {self.messages}")
-            output_message = self.completion(self.messages)
+            if loop_counter == self.maximum_loops - 1:
+                output_message = self.completion(self.messages, [self.inner_environment.TERMINATE])
+            else:
+                output_message = self.completion(self.messages)
             if output_message.tool_calls:
                 output_message.tool_calls = output_message.tool_calls[:1]  # Limit to the first tool call for simplicity
             self.logger.debug(f"New message: {output_message.json()}")

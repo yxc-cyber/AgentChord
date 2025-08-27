@@ -47,7 +47,7 @@ class ModelConfig:
     local_model: Optional[Any] = None
     model_path: Optional[str] = None
     quantization_config: Optional[BitsAndBytesConfig] = None
-    gradient_strategy: Optional[Literal["finegrained", "sum_squares"]] = None
+    gradient_strategy: Optional[Literal["finegrained", "sum_squares", "product_probs"]] = None
     connection_strategy: Optional[Literal["mean_product_input", "max_product_input", "mean_l1_norm", "max_l1_norm"]] = None
     chat_template_path: Optional[str] = None
     max_length: Optional[int] = None

@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from .base_agent import BaseAgent
 
 import json
+from copy import deepcopy
 
 
 class BaseAgentSystem:
@@ -31,6 +32,7 @@ class BaseAgentSystem:
         self.parent_number = 0
         self.tools = tools
         self.tool_descriptions = None
+        self.tool_description_dict = None
         self.environment = None
         self.inner_environment = None
         self.set_environment(environment)
@@ -101,12 +103,16 @@ class BaseAgentSystem:
         if self.environment and self.environment.get_tool_descriptions():
             if self.tools is not None:
                 self.tool_descriptions = [self.environment.get_tool_descriptions()[tool_name] for tool_name in self.tools]
+                self.tool_description_dict = {tool_name: self.environment.get_tool_descriptions()[tool_name] for tool_name in self.tools}
             else:
                 self.tool_descriptions = list(self.environment.get_tool_descriptions().values())
+                self.tool_description_dict = deepcopy(self.environment.get_tool_descriptions())
             if self.inner_environment and self.inner_environment.get_tool_descriptions():
                 self.tool_descriptions.extend(list(self.inner_environment.get_tool_descriptions().values()))
+                self.tool_description_dict.update(self.inner_environment.get_tool_descriptions())
         elif self.inner_environment and self.inner_environment.get_tool_descriptions():
             self.tool_descriptions = list(self.inner_environment.get_tool_descriptions().values())
+            self.tool_description_dict = deepcopy(self.inner_environment.get_tool_descriptions())
 
     def add_subsystem(self, subsystem: Self):
         subsystem_name = subsystem.system_name

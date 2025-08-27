@@ -69,4 +69,8 @@ PROMPT_TEMPLATE = f"""
 When you receive inputs from previous agents, they will be wrapped in {INPUT_HEADER} and {INPUT_FOOTER} tags and separated by {INPUT_SEPARATOR}.
 Some inputs may be attached with a note, which contains additional information beyond the input itself.
 Some inputs may be useless, so you only focus on the useful inputs.
+When you decide to generate an output for the next agent or the user, you should use the "terminate" tool to return the output and note.
+If you are instructed to output a certain format, put the output in the "output" field of the "terminate" tool.
+If you are instructed to output a JSON object, please put the JSON object in the "output" field of the "terminate" tool. Don't take the keys of the JSON object as the parameters of a tool.
+Don't generate a response that is not wrapped in the "terminate" tool.
 """.strip()

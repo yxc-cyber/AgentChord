@@ -1,6 +1,49 @@
 {
-    "inform": 0.9999999999,
-    "success": 0.9999999999,
+    "system_response": [
+        "Your taxi from Saint John's College to Pizza Hut Fen Ditton has been booked successfully. The reference number is IAX2STVL. You can contact the taxi service at 6906832541. The taxi type is a black Skoda.",
+        "Your taxi has been booked from Saint John's College to Pizza Hut Fen Ditton. It is a black Volkswagen, and the reference number for your booking is SKB22H14. You can contact the taxi service at 6918534026 if needed.",
+        "Your taxi has been booked! It will be a black Volkswagen, and the contact number is 0260094824. Your reference number is C31ORI42."
+    ],
+    "inform": {
+        "taxi": 1.0,
+        "total": 0.9999999999
+    },
+    "inform_detail": {
+        "taxi": {
+            "requested": [
+                {
+                    "destination": "pizza hut fen ditton",
+                    "departure": "saint john's college",
+                    "leaveAt": "17:15"
+                },
+                {
+                    "destination": "pizza hut fen ditton",
+                    "departure": "saint john's college",
+                    "leaveAt": "17:15"
+                },
+                {
+                    "destination": "pizza hut fen ditton",
+                    "departure": "saint john's college",
+                    "leaveAt": "17:15"
+                }
+            ],
+            "provided": []
+        }
+    },
+    "success": {
+        "taxi": 1.0,
+        "total": 0.9999999999
+    },
+    "success_detail": {
+        "taxi": {
+            "requested": [
+                "PHONE"
+            ],
+            "provided": [
+                "PHONE"
+            ]
+        }
+    },
     "matched_turns": 3.0,
     "total_turns": 3.0,
     "true_positive": 8.0,
