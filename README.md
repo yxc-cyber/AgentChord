@@ -4,7 +4,7 @@ AgentChord is a flexible framework for building, simulating, and optimizing mult
 
 ## Features
 
-- Gradient-Based Connections (GBC) for automataed Multi-Agent System (MAS) optimization.
+- Gradient-Based Connections (GBC) for automataed multi-agent system optimization.
 - Handy visualization of Gradient-Based Connections (GBC).
 - Connected to [WandB](https://wandb.ai/site/sdk) to easily monitor the optimization process.
 - Based on [LiteLLM](https://github.com/BerriAI/litellm) to support APIs from various providers.
