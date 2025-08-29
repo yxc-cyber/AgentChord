@@ -66,12 +66,12 @@ config = ModelConfig(
 ### 3. Build Agent Systems
 
 - Compose your system using `BaseAgentSystem` objects (e.g. ``BaseAgentSystem``, `GBCAgent`, `ParallelBlock`):
-    - Divide one task into subtasks and design corresponding subsystems for the overall system.
-    - Add subsystems to the overall system using `add_subsystem()`.
-    - Define the initialization subroutine of the overall system by overwriting `on_initialization()`.
+    - Divide one task into subtasks and design corresponding subsystems for the top-level system.
+    - Add subsystems to the top-level system using `add_subsystem()`.
+    - Define the initialization subroutine of the top-level system by overwriting `on_initialization()`.
     - Define subroutines before the execution of certain subsystems using `add_on_completion_action()`.
     - Define subroutines after the execution of certain subsystems using `add_on_start_action()`.
-    - Define the finalizatin subroutine of the overall system by overwriting `on_finalization()`.
+    - Define the finalizatin subroutine of the top-level system by overwriting `on_finalization()`.
     - Note that when defning the subroutines, you should take care of the Gradient-Based Connections (GBC) if you are using `GBCAgent`.
 
 Example:
