@@ -171,6 +171,7 @@ result = multiwoz_24_system.run()
 
 - Use provided evaluation function `evaluate()` and loss objects (e.g., `MultiWOZ24Loss`) to compute and backpropagate losses.
     - Note that optimization only works for `GBCAgent` systems.
+    - Optionally, visualize the GBC tree using `visualize_gbc_tree()`
 
 Example:
 ```python
@@ -182,6 +183,7 @@ optimizer.step(
     performance="...",
     performance_dict={...}
 )
+visualize_gbc_tree(loss, "example.png")
 ```
 
 ### 7. Save
