@@ -141,6 +141,7 @@ class Multiwoz24System(BaseAgentSystem):
 ### 4. Initialize Optimizer
 
 - For optimization, use `OPROOptimizer` with your agents and a model config for the optimizer. You can monitor and log results with WandB.
+    - Note that optimization only works for `GBCAgent` systems.
 
 Example:
 ```python
