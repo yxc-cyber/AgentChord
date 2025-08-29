@@ -19,290 +19,204 @@ from agentchord.loss import MultiWOZ24Loss
 from agentchord.optimizer import OPROOptimizer
 from agentchord.utils import DONT_CHANGE_FOOTER, DONT_CHANGE_HEADER, WandBConfig
 
-# Prompt templates for reading states
-prompt_read_attraction_state = f"""
-You are a helpful agent that can retrieve taxi domain dialogue states from the user.
+# training configuration
+WORKING_DIR = "experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/training"
+LOG_NAME = "multiwoz_experiment_product_probs_mean_l1_norm.log"
+OPTIMIZER_LOG_NAME = "multiwoz_experiment_optimizer_product_probs_mean_l1_norm.log"
+GRADIENT_STRATEGY = "product_probs"
+CONNECTION_STRATEGY = "mean_l1_norm"
+MODEL = "Llama3.1-8B-Instruct"
+# training resume configuration
+RESUME_DIR = None  # "experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/training/checkpoint-2"
+SKIP_SAMPLES = 0  # 20
+# model loading configuration
+LOCAL_MODEL = "LlamaModel"
+MODEL_PATH = "/shared/storage-01/users/xy61/models/Llama3.1-8B-Instruct"
+CHAT_TEMPLATE_PATH = "src/agentchord/model/chat_templates/tool_chat_template_llama3.1_json.jinja"
+
+prompt_read_state_attraction = f"""
+You are a helpful agent that can retrieve dialogue states from the user. The dialogue state, essentially, is the intent of the user that have been shown in the dialogue history. Make sure you cover all the mentioned intents in the dialogue history.
+The dialogue state should be formatted as a JSON object that contains the slots and their values. The keys of the dialogue state are the names of the intent slots, and the values are the values of the slots.
 {DONT_CHANGE_HEADER}
-The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
-```json
-{{
-    "attraction-area": {{
-        "type": "string",
-        "description": "The area in which the attraction is located.",
-        "enum": ["centre", "north", "south", "east", "west"]
-    }},
-    "attraction-name": {{
-        "type": "string",
-        "description": "The name of the attraction."
-    }},
-    "attraction-type": {{
-        "type": "string",
-        "description": "The type of the attraction.",
-        "enum": ["museum", "swimmingpool", "architecture", "boat", "college", "nightclub", "entertainment", "cinema", "concerthall", "mutliple sports", "park", "theatre"]
-    }}
-}}
-```
+The keys of the dialogue state are:
+1. attraction-area
+description: The area in which the attraction is located.
+enum: ["centre", "north", "south", "east", "west"]
+2. attraction-name
+description: The name of the attraction.
+3. attraction-type
+description: The type of the attraction.
+enum: ["museum", "swimmingpool", "architecture", "boat", "college", "nightclub", "entertainment", "cinema", "concerthall", "mutliple sports", "park", "theatre"]
 {DONT_CHANGE_FOOTER}
-The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
+
+The dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
 {{
     "attraction-area": "centre",
-    "attraction-name": "The Fitzwilliam Museum",
-    "attraction-type": "museum"
+    "attraction-name": "Theatre Royal",
+    "attraction-type": "theatre"
 }}
 ```
-Note that this is not a tool call, you should only output the JSON object.
-When there is no relative information in the dialogue state, you should return an empty JSON object.
 """.strip()
-prompt_read_hotel_state = f"""
-You are a helpful agent that can retrieve hotel domain dialogue states from the user.
+
+prompt_read_state_hotel = f"""
+You are a helpful agent that can retrieve dialogue states from the user. The dialogue state, essentially, is the intent of the user that have been shown in the dialogue history. Make sure you cover all the mentioned intents in the dialogue history.
+The dialogue state should be formatted as a JSON object that contains the slots and their values. The keys of the dialogue state are the names of the intent slots, and the values are the values of the slots.
 {DONT_CHANGE_HEADER}
-The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
-```json
-{{
-    "hotel-area": {{
-        "type": "string",
-        "description": "The area in which the hotel is located.",
-        "enum": ["centre", "north", "south", "east", "west"]
-    }},
-    "hotel-book day": {{
-        "type": "string",
-        "description": "The day of the booking.",
-        "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    }},
-    "hotel-book people": {{
-        "type": "string",
-        "description": "The number of people in the booking."
-    }},
-    "hotel-book stay": {{
-        "type": "string",
-        "description": "The number of days of the booking."
-    }},
-    "hotel-internet": {{
-        "type": "string",
-        "description": "Whether the hotel has internet.",
-        "enum": ["yes", "no"]
-    }},
-    "hotel-name": {{
-        "type": "string",
-        "description": "The name of the hotel."
-    }},
-    "hotel-parking": {{
-        "type": "string",
-        "description": "Whether the hotel has parking.",
-        "enum": ["yes", "no"]
-    }},
-    "hotel-pricerange": {{
-        "type": "string",
-        "description": "The price range of the hotel.",
-        "enum": ["cheap", "moderate", "expensive"]
-    }},
-    "hotel-stars": {{
-        "type": "string",
-        "description": "The number of stars of the hotel.",
-        "enum": ["0", "1", "2", "3", "4", "5"]
-    }},
-    "hotel-type": {{
-        "type": "string",
-        "description": "The type of the hotel.",
-        "enum": ["bed and breakfast", "guesthouse", "hotel"]
-    }}
-}}
-```
+The keys of the dialogue state are:
+1. hotel-area
+description: The area in which the hotel is located.
+enum: ["centre", "north", "south", "east", "west"]
+2. hotel-book day
+description: The day of the booking.
+enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+3. hotel-book people
+description: The number of people in the booking.
+4. hotel-book stay
+description: The number of days of the booking.
+5. hotel-internet
+description: Whether the hotel has internet.
+enum: ["yes", "no"]
+6. hotel-name
+description: The name of the hotel.
+7. hotel-parking
+description: Whether the hotel has parking.
+enum: ["yes", "no"]
+8. hotel-pricerange
+description: The price range of the hotel.
+enum: ["cheap", "moderate", "expensive"]
+9. hotel-stars
+description: The number of stars of the hotel.
+enum: ["0", "1", "2", "3", "4", "5"]
+10. hotel-type
+description: The type of the hotel.
+enum: ["bed and breakfast", "guesthouse", "hotel"]
 {DONT_CHANGE_FOOTER}
-The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
+
+The dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
 {{
     "hotel-area": "centre",
     "hotel-book day": "monday",
+    "hotel-book people": "2",
+    "hotel-book stay": "3",
     "hotel-internet": "yes",
-    "hotel-name": "The Cambridge Belfry",
-    "hotel-parking": "yes",
-    "hotel-pricerange": "moderate"
+    "hotel-name": "Theatre Royal Hotel",
+    "hotel-parking": "no",
+    "hotel-pricerange": "moderate",
+    "hotel-stars": "4",
+    "hotel-type": "guesthouse"
 }}
 ```
-Note that this is not a tool call, you should only output the JSON object.
-When there is no relative information in the dialogue state, you should return an empty JSON object.
 """.strip()
-prompt_read_restaurant_state = f"""
-You are a helpful agent that can retrieve restaurant domain dialogue states from the user.
+
+prompt_read_state_restaurant = f"""
+You are a helpful agent that can retrieve dialogue states from the user. The dialogue state, essentially, is the intent of the user that have been shown in the dialogue history. Make sure you cover all the mentioned intents in the dialogue history.
+The dialogue state should be formatted as a JSON object that contains the slots and their values. The keys of the dialogue state are the names of the intent slots, and the values are the values of the slots.
 {DONT_CHANGE_HEADER}
-The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
-```json
-{{
-    "restaurant-area": {{
-        "type": "string",
-        "description": "The area in which the restaurant is located.",
-        "enum": ["centre", "north", "south", "east", "west"]
-    }},
-    "restaurant-book day": {{
-        "type": "string",
-        "description": "The day of the booking.",
-        "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    }},
-    "restaurant-book people": {{
-        "type": "string",
-        "description": "The number of people in the booking."
-    }},
-    "restaurant-book time": {{
-        "type": "string",
-        "description": "The time of the booking in the format HH:MM."
-    }},
-    "restaurant-food": {{
-        "type": "string",
-        "description": "The type of food served at the restaurant.",
-        "enum": ["international", "indian", "mediterranean", "italian", "vietnamese", "lebanese", "african", "modern european", "french", "european", "portuguese", "japanese", "seafood", "chinese", "turkish", "gastropub", "british", "thai", "spanish", "korean", "north american", "mexican", "asian oriental"]
-    }},
-    "restaurant-name": {{
-        "type": "string",
-        "description": "The name of the restaurant."
-    }},
-    "restaurant-pricerange": {{
-        "type": "string",
-        "description": "The price range of the restaurant.",
-        "enum": ["cheap", "moderate", "expensive"]
-    }}
-}}
-```
+The keys of the dialogue state are:
+1. restaurant-area
+description: The area in which the restaurant is located.
+enum: ["centre", "north", "south", "east", "west"]
+2. restaurant-book day
+description: The day of the booking.
+enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+3. restaurant-book people
+description: The number of people in the booking.
+4. restaurant-book time
+description: The time of the booking in the format HH:MM.
+5. restaurant-food
+description: The type of food served at the restaurant.
+enum: ["international", "indian", "mediterranean", "italian", "vietnamese", "lebanese", "african", "modern european", "french", "european", "portuguese", "japanese", "seafood", "chinese", "turkish", "gastropub", "british", "thai", "spanish", "korean", "north american", "mexican", "asian oriental"]
+6. restaurant-name
+description: The name of the restaurant.
+7. restaurant-pricerange
+description: The price range of the restaurant.
+enum: ["cheap", "moderate", "expensive"]
 {DONT_CHANGE_FOOTER}
-The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
+
+The dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
 {{
     "restaurant-area": "centre",
     "restaurant-book day": "monday",
     "restaurant-book people": "2",
-    "restaurant-food": "italian",
-    "restaurant-name": "Trattoria Da Paolo"
+    "restaurant-book time": "19:00"
 }}
 ```
-Note that this is not a tool call, you should only output the JSON object.
-When there is no relative information in the dialogue state, you should return an empty JSON object.
 """.strip()
-prompt_read_taxi_state = f"""
-You are a helpful agent that can retrieve taxi domain dialogue states from the user.
+
+prompt_read_state_taxi = f"""
+You are a helpful agent that can retrieve dialogue states from the user. The dialogue state, essentially, is the intent of the user that have been shown in the dialogue history. Make sure you cover all the mentioned intents in the dialogue history.
+The dialogue state should be formatted as a JSON object that contains the slots and their values. The keys of the dialogue state are the names of the intent slots, and the values are the values of the slots.
 {DONT_CHANGE_HEADER}
-The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
-```json
-{{
-    "taxi-arriveby": {{
-        "type": "string",
-        "description": "The time by which the taxi should arrive in the format HH:MM."
-    }},
-    "taxi-departure": {{
-        "type": "string",
-        "description": "The departure location of the taxi."
-    }},
-    "taxi-destination": {{
-        "type": "string",
-        "description": "The destination location of the taxi."
-    }},
-    "taxi-leaveat": {{
-        "type": "string",
-        "description": "The time at which the taxi should leave in the format HH:MM."
-    }}
-}}
-```
+The keys of the dialogue state are:
+1. taxi-arriveby
+description: The time by which the taxi should arrive in the format HH:MM.
+2. taxi-departure
+description: The departure location of the taxi.
+3. taxi-destination
+description: The destination location of the taxi.
+4. taxi-leaveat
+description: The time at which the taxi should leave in the format HH:MM.
 {DONT_CHANGE_FOOTER}
-The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
+
+The dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
 {{
-    "taxi-arriveby": "17:45",
-    "taxi-departure": "Cambridge city center",
-    "taxi-destination": "The Eagle pub"
+    "taxi-arriveby": "19:00",
+    "taxi-departure": "Theatre Royal",
+    "taxi-destination": "Cambridge City Centre",
+    "taxi-leaveat": "18:30"
 }}
 ```
-Note that this is not a tool call, you should only output the JSON object.
-When there is no relative information in the dialogue state, you should return an empty JSON object.
 """.strip()
-prompt_read_train_state = f"""
-You are a helpful agent that can retrieve train domain dialogue states from the user.
+
+prompt_read_state_train = f"""
+You are a helpful agent that can retrieve dialogue states from the user. The dialogue state, essentially, is the intent of the user that have been shown in the dialogue history. Make sure you cover all the mentioned intents in the dialogue history.
+The dialogue state should be formatted as a JSON object that contains the slots and their values. The keys of the dialogue state are the names of the intent slots, and the values are the values of the slots.
 {DONT_CHANGE_HEADER}
-The keys are the names of the slots and the values are the values of the slots. The keys of the dialogue state are:
-```json
-{{
-    "train-arriveby": {{
-        "type": "string",
-        "description": "The time by which the train arrives in the format HH:MM."
-    }},
-    "train-book people": {{
-        "type": "string",
-        "description": "The number of people in the booking."
-    }},
-    "train-day": {{
-        "type": "string",
-        "description": "The day on which the train departs.",
-        "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    }},
-    "train-departure": {{
-        "type": "string",
-        "description": "The departure location of the train."
-    }},
-    "train-destination": {{
-        "type": "string",
-        "description": "The destination location of the train."
-    }},
-    "train-leaveat": {{
-        "type": "string",
-        "description": "The time at which the train leaves in the format HH:MM."
-    }}
-}}
-```
+The keys of the dialogue state are:
+1. train-arriveby
+description: The time by which the train arrives in the format HH:MM.
+2. train-book people
+description: The number of people in the booking.
+3. train-day
+description: The day on which the train departs.
+enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+4. train-departure
+description: The departure location of the train.
+5. train-destination
+description: The destination location of the train.
+6. train-leaveat
+description: The time at which the train leaves in the format HH:MM.
 {DONT_CHANGE_FOOTER}
-The entries of the dialogue state should be put in JSON format. One example of the dialogue state is:
+
+The dialogue state should be put in JSON format. One example of the dialogue state is:
 ```json
 {{
-    "train-arriveby": "17:45",
+    "train-arriveby": "19:00",
     "train-book people": "2",
     "train-day": "monday",
     "train-departure": "Cambridge",
-    "train-destination": "London"
+    "train-destination": "London",
+    "train-leaveat": "18:00"
 }}
 ```
-Note that this is not a tool call, you should only output the JSON object.
-When there is no relative information in the dialogue state, you should return an empty JSON object.
 """.strip()
 
-# Prompt templates for using tools
-prompt_use_attraction_tool = """
-You are a helpful agent that can properly use the attraction domain tools to make queries or bookings for the user.
-You will be given the dialogue state of the user, which is retreived from the previous agent and contains the information about the user's request.
-Based on the dialogue state and the dialogue history, you should decide whether to use the tools or not.
-If you decide to use the tools, you should indicate what operation you have performed and what the result is to the next agent using the terminate tool after you have used all the necessary tools.
-If you decide not to use the tools, you should indicate that you have not used the tools and provide a reason for not using them.
-""".strip()
-prompt_use_hotel_tool = """
-You are a helpful agent that can properly use the hotel domain tools to make queries or bookings for the user.
-You will be given the dialogue state of the user, which is retreived from the previous agent and contains the information about the user's request.
-Based on the dialogue state and the dialogue history, you should decide whether to use the domain tools or not.
-If you decide to use the tools, you should indicate what operation you have performed and what the result is to the next agent using the terminate tool after you have used all the necessary tools.
-If you decide not to use the tools, you should indicate that you have not used the tools and provide a reason for not using them.
-""".strip()
-prompt_use_restaurant_tool = """
-You are a helpful agent that can properly use the restaurant domain tools to make queries or bookings for the user.
-You will be given the dialogue state of the user, which is retreived from the previous agent and contains the information about the user's request.
-Based on the dialogue state and the dialogue history, you should decide whether to use the domain tools or not.
-If you decide to use the tools, you should indicate what operation you have performed and what the result is to the next agent using the terminate tool after you have used all the necessary tools.
-If you decide not to use the tools, you should indicate that you have not used the tools and provide a reason for not using them.
-""".strip()
-prompt_use_taxi_tool = """
-You are a helpful agent that can properly use the taxi domain tools to make queries or bookings for the user.
-You will be given the dialogue state of the user, which is retreived from the previous agent and contains the information about the user's request.
-Based on the dialogue state and the dialogue history, you should decide whether to use the domain tools or not.
-If you decide to use the tools, you should indicate what operation you have performed and what the result is to the next agent using the terminate tool after you have used all the necessary tools.
-If you decide not to use the tools, you should indicate that you have not used the tools and provide a reason for not using them.
-""".strip()
-prompt_use_train_tool = """
-You are a helpful agent that can properly use the train domain tools to make queries or bookings for the user.
-You will be given the dialogue state of the user, which is retreived from the previous agent and contains the information about the user's request.
-Based on the dialogue state and the dialogue history, you should decide whether to use the domain tools or not.
-If you decide to use the tools, you should indicate what operation you have performed and what the result is to the next agent using the terminate tool after you have used all the necessary tools.
-If you decide not to use the tools, you should indicate that you have not used the tools and provide a reason for not using them.
+
+prompt_use_tool = """
+You are a helpful agent that can properly use the tools to make queries or bookings for the user.
+You will be provided with a dialogue history and a dialogue state extracted by the previous agent. The dialogue state indicates the intention of the user in the current turn.
+Based on the dialogue history and the dialogue state, you should decide whether to use the tools or not. You can use another tool after you have used one and received the tool result.
+Finally, you should generate a summary of the actions you have taken and the results you have received.
 """.strip()
 
-# Prompt template for generating response
+
 prompt_generate_response = """
 You are a helpful agent that can generate a response based on the dialogue history and the actions performed by the previous agents.
-The previous agents have performed queries or bookings according to the user's request.
+The previous agents have performed queries or bookings according to the user's request. You will receive the summaries of the actions in the inputs.
 Now you should generate the final response to the user according to the dialogue history and the actions performed by the previous agents.
 Note that the response will be directly sent to the user, so it should be clear and concise.
 """.strip()
@@ -315,15 +229,15 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_compute_dtype = torch.bfloat16
 )
 config = ModelConfig(
-    local_model="LlamaModel",
-    model_path="/shared/storage-01/users/xy61/models/Llama3.1-8B-Instruct",
+    local_model=LOCAL_MODEL,
+    model_path=MODEL_PATH,
     quantization_config=bnb_config,
     max_new_tokens=128,
     # temperature=0.0,
     do_sample=False,
-    gradient_strategy="product_probs",
-    connection_strategy="mean_l1_norm",
-    chat_template_path="src/agentchord/model/chat_templates/tool_chat_template_llama3.1_json.jinja"
+    gradient_strategy=GRADIENT_STRATEGY,
+    connection_strategy=CONNECTION_STRATEGY,
+    chat_template_path=CHAT_TEMPLATE_PATH
 )
 
 
@@ -427,8 +341,6 @@ class Multiwoz24DomainUnit(BaseAgentSystem):
                 )
             ]
         else:
-            print(f"Output: {metadata.output}")
-            print(f"Output type: {type(metadata.output)}")
             metadata.dialogue_state = GBC(
                 dialogue_state,
                 connections=metadata.output,
@@ -463,8 +375,8 @@ class Multiwoz24System(BaseAgentSystem):
             log_name=log_name
         )
         attraction_unit = Multiwoz24DomainUnit(
-            prompt_read_state=prompt_read_attraction_state,
-            prompt_use_tool=prompt_use_attraction_tool,
+            prompt_read_state=prompt_read_state_attraction,
+            prompt_use_tool=prompt_use_tool,
             tools=["query_attraction"],
             system_name="attraction_unit",
             domain="attraction",
@@ -473,8 +385,8 @@ class Multiwoz24System(BaseAgentSystem):
             log_name=log_name
         )
         hotel_unit = Multiwoz24DomainUnit(
-            prompt_read_state=prompt_read_hotel_state,
-            prompt_use_tool=prompt_use_hotel_tool,
+            prompt_read_state=prompt_read_state_hotel,
+            prompt_use_tool=prompt_use_tool,
             tools=["query_hotel", "book_hotel"],
             system_name="hotel_unit",
             domain="hotel",
@@ -483,8 +395,8 @@ class Multiwoz24System(BaseAgentSystem):
             log_name=log_name
         )
         restaurant_unit = Multiwoz24DomainUnit(
-            prompt_read_state=prompt_read_restaurant_state,
-            prompt_use_tool=prompt_use_restaurant_tool,
+            prompt_read_state=prompt_read_state_restaurant,
+            prompt_use_tool=prompt_use_tool,
             tools=["query_restaurant", "book_restaurant"],
             system_name="restaurant_unit",
             domain="restaurant",
@@ -493,8 +405,8 @@ class Multiwoz24System(BaseAgentSystem):
             log_name=log_name
         )
         taxi_unit = Multiwoz24DomainUnit(
-            prompt_read_state=prompt_read_taxi_state,
-            prompt_use_tool=prompt_use_taxi_tool,
+            prompt_read_state=prompt_read_state_taxi,
+            prompt_use_tool=prompt_use_tool,
             tools=["book_taxi"],
             system_name="taxi_unit",
             domain="taxi",
@@ -503,8 +415,8 @@ class Multiwoz24System(BaseAgentSystem):
             log_name=log_name
         )
         train_unit = Multiwoz24DomainUnit(
-            prompt_read_state=prompt_read_train_state,
-            prompt_use_tool=prompt_use_train_tool,
+            prompt_read_state=prompt_read_state_train,
+            prompt_use_tool=prompt_use_tool,
             tools=["query_train", "book_train"],
             system_name="train_unit",
             domain="train",
@@ -571,8 +483,7 @@ class Multiwoz24System(BaseAgentSystem):
                 final_note.append(single_metadata.note)
             final_state.update(single_metadata.dialogue_state)
             final_state_connections.extend(single_metadata.dialogue_state.get_connections())
-            # final_tool.extend(single_metadata.tool)
-            final_tool = single_metadata.tool
+            final_tool.extend(single_metadata.tool)
         final_metadata.input = final_input
         final_metadata.note = final_note
         final_metadata.dialogue_state = GBC(
@@ -590,7 +501,7 @@ class Multiwoz24System(BaseAgentSystem):
         metadata.system_response = metadata.output or metadata.note
         return metadata
 
-multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_experiment_product_probs_mean_l1_norm.log")
+multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name=LOG_NAME)
 print(multiwoz_24_system.get_pipeline_description())
 
 optimizer = OPROOptimizer(
@@ -598,15 +509,15 @@ optimizer = OPROOptimizer(
     model_config=ModelConfig(
         client_model="openai/gpt-4.1-2025-04-14",
     ),
-    log_name="multiwoz_experiment_product_probs_mean_l1_norm.log",
+    log_name=OPTIMIZER_LOG_NAME,
     wandb_config=WandBConfig(
         project="AgentChord",
         config={
             "dataset": "MultiWOZ-24",
             "system": "Multiwoz24System",
-            "gradient_strategy": "product_probs",
-            "connection_strategy": "mean_l1_norm",
-            "model": "Llama3.1-8B-Instruct",
+            "gradient_strategy": GRADIENT_STRATEGY,
+            "connection_strategy": CONNECTION_STRATEGY,
+            "model": MODEL,
             "optimizer": "OPROOptimizer",
             "optimizer_model": "gpt-4.1-2025-04-14",
         }
@@ -615,10 +526,44 @@ optimizer = OPROOptimizer(
 loss_fn = MultiWOZ24Loss()
 optimization_steps = 0
 dialogue_idx_pool = list()
-for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_cases(mode="train", random_seed=42)):
+
+def check_inference_trajectories():
+    for trajectory_idx in range(len(optimizer.optimization_info)-1, -1, -1):
+        trajectory = optimizer.optimization_info[trajectory_idx]
+        if "The system has made the following user intention predictions" in trajectory[-1][1]:
+            text = trajectory[-1][1]
+            fp_match = re.search(r"The false positive predictions are:\s*(\{.*?\})", text, re.DOTALL)
+            fn_match = re.search(r"The false negative predictions are:\s*(\[.*?\])", text, re.DOTALL)
+            false_positive = json.loads(fp_match.group(1)) if fp_match else dict()
+            false_negative = json.loads(fn_match.group(1)) if fn_match else dict()
+            print("False Positive:", false_positive)
+            print("False Negative:", false_negative)
+            erroneous_domains = set([slot.split("-")[0] for slot in false_negative]) | set([slot.split("-")[0] for slot in false_positive.keys()])
+            contain_erroneous_domain = False
+            for subject, _ in trajectory:
+                if "_state_agent" in str(subject):
+                    domain = str(subject).split("_state_agent")[0]
+                    if domain in erroneous_domains:
+                        contain_erroneous_domain = True
+                        break
+            if not contain_erroneous_domain:
+                print("Removing trajectory:", trajectory)
+                optimizer.optimization_info.pop(trajectory_idx)
+
+if not os.path.exists(os.path.join(WORKING_DIR, "checkpoint-0")):
+    os.makedirs(os.path.join(WORKING_DIR, "checkpoint-0"))
+multiwoz_24_system.save_agents(file_name=os.path.join(WORKING_DIR, "checkpoint-0/multiwoz_24_agents.json"))
+optimizer.save_optimizer_state(file_path=os.path.join(WORKING_DIR, "checkpoint-0/optimizer_state.json"))
+if RESUME_DIR is not None:
+    multiwoz_24_system.load_agents(file_name=os.path.join(RESUME_DIR, "multiwoz_24_agents.json"))
+    optimizer.load_optimizer_state(file_path=os.path.join(RESUME_DIR, "optimizer_state.json"))
+for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_cases(mode="train", random_seed=42, max_turns=10)):
+    print(f"{dialogue_idx} Dialogue: {dialogue_case.dialogue_idx}")
+    if dialogue_idx < SKIP_SAMPLES:
+        continue
     dialogue_idx_pool.append(dialogue_case.dialogue_idx)
     for turn_idx, turn_case in enumerate(dialogue_case.iterate_dialog_turns()):
-        print(f"Dialogue: {dialogue_case.dialogue_idx},\tTurn: {turn_idx}")
+        print(f"{dialogue_idx} Dialogue: {dialogue_case.dialogue_idx},\tTurn: {turn_idx}")
         multiwoz_24_system.set_environment(environment=turn_case)
         result = multiwoz_24_system.run()
         evaluation_result = turn_case.evaluate(result)
@@ -629,6 +574,7 @@ for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_
     loss.backward(bandwidth=1)
     if (dialogue_idx + 1) % 10 == 0:
         evaluation_result = Multiwoz24Environment.evaluate_test_cases(mode="train", dialogue_indices=dialogue_idx_pool)
+        check_inference_trajectories()
         optimizer.step(
             performance=f"Inform: {evaluation_result.inform['total']}; Success : {evaluation_result.success['total']}; Joint Goal Accuracy: {evaluation_result.joint_goal_accuracy}",
             performance_dict={
@@ -637,15 +583,16 @@ for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_
                 "joint_goal_accuracy": evaluation_result.joint_goal_accuracy
             }
         )
-        optimization_steps += 1
+        optimization_steps = (dialogue_idx + 1) // 10
 
-        if not os.path.exists(f"experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/training/checkpoint-{optimization_steps}"):
-            os.makedirs(f"experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/training/checkpoint-{optimization_steps}")
-        multiwoz_24_system.save_agents(file_name=f"experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/training/checkpoint-{optimization_steps}/multiwoz_24_agents_{dialogue_idx}.json")
-        optimizer.save_optimizer_state(file_path=f"experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/training/checkpoint-{optimization_steps}/optimizer_state_{dialogue_idx}.json")
+        if not os.path.exists(os.path.join(WORKING_DIR, f"checkpoint-{optimization_steps}")):
+            os.makedirs(os.path.join(WORKING_DIR, f"checkpoint-{optimization_steps}"))
+        multiwoz_24_system.save_agents(file_name=os.path.join(WORKING_DIR, f"checkpoint-{optimization_steps}/multiwoz_24_agents.json"))
+        optimizer.save_optimizer_state(file_path=os.path.join(WORKING_DIR, f"checkpoint-{optimization_steps}/optimizer_state.json"))
         dialogue_idx_pool = list()
     
     if dialogue_idx >= 99:
         break
 
 optimizer.finish_wandb()
+# visualize_gbc_tree(loss, "experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/training/example.png")

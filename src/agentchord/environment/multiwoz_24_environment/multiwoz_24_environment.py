@@ -138,19 +138,21 @@ class Multiwoz24Environment(BaseEnvironment):
             cls.pre_initialized = True
 
     @classmethod
-    def iterate_test_cases(cls, mode: Literal["train", "dev", "test"], random_seed: Optional[int] = None) -> Iterator[Self]:
+    def iterate_test_cases(cls, mode: Literal["train", "dev", "test"], random_seed: Optional[int] = None, max_turns: Optional[int] = None) -> Iterator[Self]:
         cls.pre_initialize()
         if random_seed is None:
             for dialogue_idx in cls.dialogues[mode]:
                 if len(cls.dialogues[mode][dialogue_idx]["dialogue"]) >= 2:  # Ensure there is at least one user turn and one system turn
-                    yield cls(mode=mode, dialogue_idx=dialogue_idx)
+                    if max_turns is None or (max_turns is not None and len(cls.dialogues[mode][dialogue_idx]["dialogue"]) <= max_turns):
+                        yield cls(mode=mode, dialogue_idx=dialogue_idx)
         else:
             random.seed(random_seed)
             dialogue_indices = list(cls.dialogues[mode].keys())
             random.shuffle(dialogue_indices)
             for dialogue_idx in dialogue_indices:
                 if len(cls.dialogues[mode][dialogue_idx]["dialogue"]) >= 2:  # Ensure there is at least one user turn and one system turn
-                    yield cls(mode=mode, dialogue_idx=dialogue_idx)
+                    if max_turns is None or (max_turns is not None and len(cls.dialogues[mode][dialogue_idx]["dialogue"]) <= max_turns):
+                        yield cls(mode=mode, dialogue_idx=dialogue_idx)
 
     @classmethod
     def evaluate_test_cases(cls, mode: Literal["train", "dev", "test"], dialogue_indices: Optional[Union[List[str], str]] = None) -> MultiWOZ24MetaData:
@@ -186,7 +188,7 @@ class Multiwoz24Environment(BaseEnvironment):
                     if domain not in provided_slots:
                         provided_queries[domain] = list()
                     requested_queries[domain].extend(domain_inform_detail["requested"])
-                    provided_queries[domain].extend(domain_inform_detail["provided"])
+                    provided_queries[domain] = domain_inform_detail["provided"]
                 for domain, domain_success_detail in turn_eval_record.success_detail.items():
                     if domain not in requested_slots:
                         requested_slots[domain] = set()

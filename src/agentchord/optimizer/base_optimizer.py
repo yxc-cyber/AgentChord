@@ -1,9 +1,10 @@
 import json
+import re
 from copy import deepcopy
 from typing import Dict, Optional, Union
 
 from ..agent_system import BaseAgent, Input
-from ..utils import Logger, WandBConfig
+from ..utils import DONT_CHANGE_FOOTER, DONT_CHANGE_HEADER, Logger, WandBConfig
 
 
 class BaseOptimizer:
@@ -55,6 +56,33 @@ class BaseOptimizer:
         """
         for agent_name, new_prompt in new_prompts.items():
             if agent_name in self.agents:
+                dont_change_blocks = []
+                pattern = re.compile(f"{DONT_CHANGE_HEADER}(.*?){DONT_CHANGE_FOOTER}", re.DOTALL)
+                matches = pattern.findall(self.prompts[agent_name])
+                for match in matches:
+                    dont_change_blocks.append(match)
+                # Replace DONT_CHANGE blocks in new_prompt with extracted ones
+                new_blocks = pattern.findall(new_prompt)
+                new_prompt_parts = []
+                last_end = 0
+                for i, match in enumerate(new_blocks):
+                    start = new_prompt.find(DONT_CHANGE_HEADER, last_end)
+                    end = new_prompt.find(DONT_CHANGE_FOOTER, start) + len(DONT_CHANGE_FOOTER)
+                    if i < len(dont_change_blocks):
+                        # Replace with extracted block
+                        block = f"{DONT_CHANGE_HEADER}{dont_change_blocks[i]}{DONT_CHANGE_FOOTER}"
+                    else:
+                        # Skip exceeding blocks in new_prompt
+                        block = ""
+                    new_prompt_parts.append(new_prompt[last_end:start])
+                    new_prompt_parts.append(block)
+                    last_end = end
+                new_prompt_parts.append(new_prompt[last_end:])
+                new_prompt = "".join(new_prompt_parts)
+                # Append any remaining extracted blocks at the end
+                if len(dont_change_blocks) > len(new_blocks):
+                    for i in range(len(new_blocks), len(dont_change_blocks)):
+                        new_prompt += f"{DONT_CHANGE_HEADER}{dont_change_blocks[i]}{DONT_CHANGE_FOOTER}"
                 self.agents[agent_name].set_prompt(new_prompt)
                 self.prompts[agent_name] = new_prompt
 

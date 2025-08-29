@@ -16,7 +16,7 @@ TERMINATE_DESCRIPTION = {
                 },
                 "note": {
                     "type": "string",
-                    "description": "A note left for the next agent, additional information that might be useful for the next agent. Can be empty. Make it as concise as possible."
+                    "description": "A note left for the next agent, additional information is necessart to the next agent. Usually should be empty. Make it as concise as possible."
                 },
             },
             "additionalProperties": False,

@@ -6,8 +6,8 @@ You will be given the structure of a multi-agent system, including the names of 
 You will be provided with some inference trajectories from the multi-agent system. Each trajectory consists of a sequence of outputs from different agents. Each output is condition on the previous outputs.
 At the end of each trajectory, there is a comparison between the final output and the expected output.
 You will also receive a optimization history that contains information about the agents and their prompts.
-Your task is to analyze these trajectories and provide insights on how the agents can avoid the mistakes and achieve better results by improving their prompts.
-You can add sentences to warn the agents about the mistakes in the trajectories.
+Your task is to analyze these trajectories and provide insights on how the agents can avoid the mistakes and achieve better results by improving their prompts. Note that the order of the agents are fix. So you should not suggest changing the order of the agents.
+If there's no **Warning** section, you can add such a section at the end of the prompt. You can add sentences to warn the agents about the mistakes in the trajectories. For example, if an agent often misses certain tool calls, you can encourage the agent to use certain tools under certain situations; if an agent often misses certain information in tool call inputs, you can warn the agent to pay attention to those information.
 However, the content within the {DONT_CHANGE_HEADER} and {DONT_CHANGE_FOOTER} tags and the tags themselves should be kept unchanged and preserved in the new prompt.
 You should also note that the causality in some trajectories is noisy. so you should not take the noisy causality into account.
 

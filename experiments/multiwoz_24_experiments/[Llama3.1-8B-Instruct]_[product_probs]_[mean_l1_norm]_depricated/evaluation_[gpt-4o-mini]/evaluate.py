@@ -227,5 +227,49 @@ class Multiwoz24System(BaseAgentSystem):
         metadata.system_response = metadata.output or metadata.note
         return metadata
 
-multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_experiment_eval_product_probs_max_l1_norm.log")
+multiwoz_24_system = Multiwoz24System("multiwoz_24_system", Multiwoz24Environment(), log_name="multiwoz_experiment_eval_product_probs_mean_l1_norm.log")
 print(multiwoz_24_system.get_pipeline_description())
+
+def convert_sets(obj):
+    if isinstance(obj, set):
+        return list(obj)
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+total_record = dict()
+for checkpoint_idx in range(0, 5):
+    if checkpoint_idx == 0:
+        multiwoz_24_system.load_agents(file_name=f"experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/training/checkpoint-0/multiwoz_24_agents.json")
+    else:
+        multiwoz_24_system.load_agents(file_name=f"experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/training/checkpoint-{checkpoint_idx}/multiwoz_24_agents_{checkpoint_idx*10-1}.json")
+    dialogue_idx_pool = list()
+    for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_cases(mode="test", random_seed=42)):
+        dialogue_idx_pool.append(dialogue_case.dialogue_idx)
+        for turn_idx, turn_case in enumerate(dialogue_case.iterate_dialog_turns()):
+            print(f"Dialogue: {dialogue_idx} {dialogue_case.dialogue_idx},\tTurn: {turn_idx}")
+            multiwoz_24_system.set_environment(environment=turn_case)
+            result = multiwoz_24_system.run()
+            evaluation_result = turn_case.evaluate(result)
+            print(f"System Response: {evaluation_result.system_response}")
+            print(f"Delixicalized System Response: {evaluation_result.delixicalized_system_response}")
+            print(f"Dialogue State: {evaluation_result.dialogue_state}")
+            print(f"Groundtruth Dialogue State: {evaluation_result.groundtruth_dialogue_state}")
+            print(f"Joint Goal Accuracy: {evaluation_result.joint_goal_accuracy}")
+            print(f"Joint Goal Accuracy Detail: {evaluation_result.joint_goal_accuracy_detail}")
+            print(f"Inform detail: {evaluation_result.inform_detail}")
+            print(f"Success detail: {evaluation_result.success_detail}")
+            total_record[f"dialogue_{dialogue_case.dialogue_idx}_turn_{turn_idx}"] = {
+                "system_response": evaluation_result.system_response,
+                "delixicalized_system_response": evaluation_result.delixicalized_system_response,
+                "dialogue_state": evaluation_result.dialogue_state,
+                "groundtruth_dialogue_state": evaluation_result.groundtruth_dialogue_state,
+                "joint_goal_accuracy": evaluation_result.joint_goal_accuracy,
+                "joint_goal_accuracy_detail": evaluation_result.joint_goal_accuracy_detail,
+                "inform_detail": evaluation_result.inform_detail,
+                "success_detail": evaluation_result.success_detail
+            }
+        if dialogue_idx >= 99:  # Limit to 100 dialogues for testing
+            break
+    evaluation_result = Multiwoz24Environment.evaluate_test_cases(mode="test")
+    evaluation_result.to_json(file_name=f"experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/evaluation_[gpt-4o-mini]/checkpoint-{checkpoint_idx}_evaluation_result.json")
+    with open(f"experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/evaluation_[gpt-4o-mini]/checkpoint-{checkpoint_idx}_total_record.json", "w", encoding="utf-8") as f:
+        json.dump(total_record, f, ensure_ascii=False, indent=2, default=convert_sets)
