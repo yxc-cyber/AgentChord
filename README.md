@@ -168,7 +168,7 @@ result = multiwoz_24_system.run()
 
 ### 6. Evaluate and Optimize
 
-- Use provided loss functions (e.g., `MultiWOZ24Loss`) to compute and backpropagate losses.
+- Use provided evaluation function `evaluate()` and loss objects (e.g., `MultiWOZ24Loss`) to compute and backpropagate losses.
     - Note that optimization only works for `GBCAgent` systems.
 
 Example:
