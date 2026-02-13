@@ -48,6 +48,7 @@ class OPROOptimizer(BaseOptimizer):
         instrcution_str = META_PROMPT_INSTRUCTION
         input_str = META_PROMPT_INPUT.format(
             agent_structure=json.dumps(self.prompts, indent=2),
+            agent_tools=json.dumps(self.tools, indent=2),
             optimization_history=json.dumps(self.optimization_history, indent=2),
             inference_trajectories=json.dumps(inference_trajectories, indent=2)
         )

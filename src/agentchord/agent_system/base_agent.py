@@ -8,11 +8,13 @@ from ..metadata import BaseMetaData
 from ..model import ModelConfig, ModelFactory
 from ..utils import (
     EMPTY_PLACEHOLDER,
+    INPUT,
     INPUT_FOOTER,
     INPUT_HEADER,
     INPUT_SEPARATOR,
-    INPUT_WITH_NOTE,
-    NOTE_NO_ACTION,
+    OUTPUT_NO_ACTION,
+    OUTPUT_TOO_MANY_ACTIONS,
+    OUTPUT_TOO_MUCH_THINKING,
     PROMPT_TEMPLATE,
     TOOL_FOOTER,
     TOOL_HEADER,
@@ -66,21 +68,15 @@ class BaseAgent(BaseAgentSystem):
     def execution(self, meta_data: BaseMetaData) -> BaseMetaData:
         self.logger.debug(f"Receiving {meta_data}")
         input_content = meta_data.input
-        previous_note = meta_data.note
         previous_tool_usage = meta_data.tool
         meta_data.input = ""
-        meta_data.note = ""
         # meta_data.tool = list()  # Keep the previous tool usage
         meta_data.output = ""
 
-        # Prepare the input content and previous note
-        assert (isinstance(input_content, str) and isinstance(previous_note, str)) \
-            or (isinstance(input_content, list) and isinstance(previous_note, list) and len(input_content)==len(previous_note)), \
-            "Input and note must be either both strings or both lists of strings."
+        # Prepare the input content
         if isinstance(input_content, str):
-            content = INPUT_WITH_NOTE.format(
-                input = input_content or EMPTY_PLACEHOLDER,
-                note = previous_note or EMPTY_PLACEHOLDER
+            content = INPUT.format(
+                content = input_content or EMPTY_PLACEHOLDER
             )
             content = f"{INPUT_HEADER}{content}{INPUT_FOOTER}"
             self.messages.append({
@@ -88,17 +84,16 @@ class BaseAgent(BaseAgentSystem):
                 "content": content
             })
         elif isinstance(input_content, list):
-            content_list = [INPUT_WITH_NOTE.format(
-                input = input_content or EMPTY_PLACEHOLDER,
-                note = previous_note or EMPTY_PLACEHOLDER
-            ) for input_content, previous_note in zip(input_content, previous_note)]
+            content_list = [INPUT.format(
+                content = input_content or EMPTY_PLACEHOLDER
+            ) for input_content in input_content]
             content = f"{INPUT_HEADER}{INPUT_SEPARATOR.join(content_list)}{INPUT_FOOTER}"
             self.messages.append({
                 "role": "user",
                 "content": content
             })
         else:
-            raise ValueError("Input and note must be either both strings or both lists of strings.")
+            raise ValueError("Input must be either strings or lists of strings.")
         
         # Begin the execution loop
         terminate = False
@@ -127,15 +122,17 @@ class BaseAgent(BaseAgentSystem):
                         self.logger.debug(f"Tool result: {tool_result}")
                         tool_result_dict = json.loads(tool_result)
                         if "output" not in tool_result_dict:
-                            tool_result_dict["output"] = ""
-                        if "note" not in tool_result_dict:
                             assert "message" in tool_result_dict
-                            tool_result_dict["note"] = tool_result_dict["message"]
+                            tool_result_dict["output"] = tool_result_dict["message"]
                         meta_data.output = tool_result_dict["output"]
-                        meta_data.note = tool_result_dict["note"]
                         terminate = True
                     else:
-                        tool_result = self.environment.apply_tool(tool_name, tool_arguments)
+                        if tool_name in self.tools:
+                            tool_result = self.environment.apply_tool(tool_name, tool_arguments)
+                        else:
+                            tool_result = json.dumps({
+                                "message": f"Tool '{tool_name}' is not available. Available tools: {", ".join(self.tools)}."
+                            })
                         self.logger.debug(f"Tool result: {tool_result}")
                         meta_data.tool.append({"tool_name": tool_name, "tool_arguments": tool_arguments, "tool_result": tool_result})
                     
@@ -147,11 +144,16 @@ class BaseAgent(BaseAgentSystem):
                         "content":tool_result
                     })
             else:
-                output_message.content = output_message.content.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "").replace(TOOL_HEADER, "").replace(TOOL_FOOTER, "")
-                meta_data.output = ""
-                meta_data.note = NOTE_NO_ACTION.format(output = output_message.content or EMPTY_PLACEHOLDER)
+                if output_message.content.startswith("<think>") and not output_message.content.endswith("</think>"):
+                    self.logger.warning("Output content starts with <think> but does not end with </think>. Possible incomplete thinking.")
+                    meta_data.output = OUTPUT_TOO_MUCH_THINKING
+                else:
+                    meta_data.output = OUTPUT_NO_ACTION.format(content = output_message.content or EMPTY_PLACEHOLDER)
                 terminate = True
             loop_counter += 1
+        if loop_counter >= self.maximum_loops and meta_data.output == "":
+            self.logger.warning(f"Maximum loops reached ({self.maximum_loops}) without termination. Returning empty output.")
+            meta_data.output = OUTPUT_TOO_MANY_ACTIONS
         self.logger.debug(f"Returning {meta_data}")
         return meta_data
     
@@ -195,6 +197,12 @@ class BaseAgent(BaseAgentSystem):
         Get the prompt of the agent.
         """
         return self.prompt
+    
+    def get_tools(self) -> List[dict]:
+        """
+        Get the tool descriptions of the agent.
+        """
+        return [self.tool_description_dict[tool] for tool in self.tools if tool in self.tool_description_dict]
     
     def set_prompt(self, prompt: str):
         """

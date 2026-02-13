@@ -2,6 +2,7 @@ from copy import copy
 from typing import List, Optional, Union
 
 from ..environment import BaseEnvironment
+from ..gbc_object import GBC, GBCStr
 from ..metadata import BaseMetaData
 from .base_agent_system import BaseAgentSystem
 
@@ -79,13 +80,22 @@ class ParallelBlock(BaseAgentSystem):
                 if isinstance(new_meta_data.output, list):
                     final_output.extend(new_meta_data.output)
                 else:
-                    final_output.append(new_meta_data.output)
+                    if isinstance(new_meta_data.output, GBCStr):
+                        new_meta_data_output = GBC(
+                            f"{new_meta_data.output.get_subject()}:\n{str(new_meta_data.output)}",
+                            connections=new_meta_data.output.get_connections(),
+                            weights=new_meta_data.output.get_weights(),
+                            subject=new_meta_data.output.get_subject()
+                        )
+                        final_output.append(new_meta_data_output)
+                    else:
+                        final_output.append(new_meta_data.output)
                 if isinstance(new_meta_data.note, list):
                     final_note.extend(new_meta_data.note)
                 else:
                     final_note.append(new_meta_data.note)
-                # final_tool.extend(new_meta_data.tool)
-                final_tool = new_meta_data.tool
+                final_tool.extend(new_meta_data.tool)
+                # final_tool = new_meta_data.tool
                 # Early termination if the environment is done
                 if self.environment.is_done():
                     self.subsystem_sequence.set_done()

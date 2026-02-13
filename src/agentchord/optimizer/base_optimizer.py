@@ -41,6 +41,7 @@ class BaseOptimizer:
         """
         self.optimization_info = Input().get_optimization_info()
         self.prompts = {agent_name: agent.get_prompt() for agent_name, agent in self.agents.items()}
+        self.tools = {agent_name: agent.get_tools() for agent_name, agent in self.agents.items()}
 
     def update_optimization_history(self, performance: str):
         current_prompts = deepcopy(self.prompts)

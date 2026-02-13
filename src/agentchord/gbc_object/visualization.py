@@ -1,5 +1,3 @@
-import math
-
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -243,3 +241,33 @@ def visualize_gbc_tree(root: GBCBase, save_path="gbc_tree_visualization.png") ->
     G = build_tree_graph(root)
     plot_tree_right_to_left(G)
     plt.savefig(save_path)
+
+
+def save_gbc_tree(root: GBCBase, file_path="gbc_tree.pkl") -> None:
+    """
+    Saves the GBC object tree structure starting from the root node to a file using pickle.
+    
+    Args:
+        root (GBCBase): The root GBC object to save.
+        file_path (str): The path to the file where the tree will be saved.
+    """
+    G = build_tree_graph(root)
+    import pickle
+    with open(file_path, 'wb') as f:
+        pickle.dump(G, f)
+
+
+def load_gbc_tree(file_path="gbc_tree.pkl") -> nx.DiGraph:
+    """
+    Loads a GBC object tree structure from a file.
+    
+    Args:
+        file_path (str): The path to the file where the tree is saved.
+        
+    Returns:
+        nx.DiGraph: The loaded GBC object tree as a NetworkX directed graph.
+    """
+    import pickle
+    with open(file_path, 'rb') as f:
+        G = pickle.load(f)
+    return G

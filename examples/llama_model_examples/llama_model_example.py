@@ -15,14 +15,14 @@ bnb_config = BitsAndBytesConfig(
 
 config = ModelConfig(
     local_model="LlamaModel",
-    model_path="/shared/storage-01/users/xy61/models/Llama3.1-8B-Instruct",
+    model_path="/shared/storage-01/users/xy61/models/Llama-3.3-70B-Instruct",
     quantization_config=bnb_config,
     max_new_tokens=1024,
     # temperature=0.0,
     do_sample=False,
-    gradient_strategy="sum_squares",
-    connection_strategy="mean_l1_norm",
-    chat_template_path="src/agentchord/model/chat_templates/tool_chat_template_llama3.1_json.jinja"
+    gradient_strategy="product_probs",
+    connection_strategy="max_l1_norm",
+    chat_template_path="src/agentchord/model/chat_templates/tool_chat_template_llama3.3_json.jinja"
 )
 model_factory = ModelFactory(config)
 model = model_factory.create_model()
@@ -38,6 +38,7 @@ messages = [
     {"role": "system", "content": "You are a helpful agent that can extract information about today's weather based on the input."},
     {"role": "user", "content": input_content}
 ]
+
 response = model.completion(messages)
 print(response)
 output = response.choices[0].message.gbc_content

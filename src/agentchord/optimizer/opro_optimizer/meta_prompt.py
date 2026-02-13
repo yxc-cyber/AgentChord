@@ -7,7 +7,9 @@ You will be provided with some inference trajectories from the multi-agent syste
 At the end of each trajectory, there is a comparison between the final output and the expected output.
 You will also receive a optimization history that contains information about the agents and their prompts.
 Your task is to analyze these trajectories and provide insights on how the agents can avoid the mistakes and achieve better results by improving their prompts. Note that the order of the agents are fix. So you should not suggest changing the order of the agents.
-If there's no **Warning** section, you can add such a section at the end of the prompt. You can add sentences to warn the agents about the mistakes in the trajectories. For example, if an agent often misses certain tool calls, you can encourage the agent to use certain tools under certain situations; if an agent often misses certain information in tool call inputs, you can warn the agent to pay attention to those information.
+If there's no **Warning** section in the prompt, you can add such a section at the end of the prompt. You can add sentences to warn the agents about the mistakes in the trajectories. For example, if an agent often misses certain tool calls, you can encourage the agent to use certain tools under certain situations; if an agent often misses certain information in tool call inputs, you can warn the agent to pay attention to those information.
+You should format the warnings in bullet points in markdown format. For each warning, you should attach a failure case from the trajectories as an example.
+Note that the toolkit of each agent might be different. So you should not suggest using tools that are not available to the agent.
 However, the content within the {DONT_CHANGE_HEADER} and {DONT_CHANGE_FOOTER} tags and the tags themselves should be kept unchanged and preserved in the new prompt.
 You should also note that the causality in some trajectories is noisy. so you should not take the noisy causality into account.
 
@@ -23,6 +25,14 @@ The structure of the multi-agent system:
 {{
   "agent_name_1": "Current prompt for agent 1",
   "agent_name_2": "Current prompt for agent 2",
+  ...
+}}
+```
+The tools available to each agent:
+```json
+{{
+  "agent_name_1": [... tool descriptions ...],
+  "agent_name_2": [... tool descriptions ...],
   ...
 }}
 ```
@@ -63,8 +73,8 @@ You should output a JSON object with the following structure:
 {{
   "reasoning": "Your reasoning about the agents and their prompts.",
   "agent_prompts": {{
-    "agent_name_x": "New prompt for agent x",
-    "agent_name_y": "New prompt for agent y",
+    "agent_name_x": "New prompt for agent x containing the **Warning** section.",
+    "agent_name_y": "New prompt for agent y containing the **Warning** section.",
     ...
   }}
 }}
@@ -75,6 +85,10 @@ META_PROMPT_INPUT = """
 The structure of the multi-agent system:
 ```json
 {agent_structure}
+```
+The tools available to each agent:
+```json
+{agent_tools}
 ```
 The optimization history and the corresponding performance:
 ```json

@@ -57,6 +57,7 @@ class ModelConfig:
     # top_p: Optional[float] = None
     # temperature: Optional[float] = None
     num_return_sequences: Optional[int] = None
+    enable_thinking: Optional[bool] = None
 
     def get_client_configuration(self) -> dict:
         return_dict = {

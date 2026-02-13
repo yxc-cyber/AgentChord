@@ -5,6 +5,13 @@ from typing import Literal, Optional, Union
 from litellm import Message
 
 from ..gbc_object import GBCList, GBCStr
+from ..utils import (
+    INPUT_FOOTER,
+    INPUT_HEADER,
+    INPUT_SEPARATOR,
+    TOOL_FOOTER,
+    TOOL_HEADER,
+)
 
 # Gradient strategy constants
 FINEGRAINED = 0
@@ -150,8 +157,16 @@ def sanitize_output_string(output: str) -> str:
 
     # Remove leading/trailing whitespace and newlines
     cleaned = output.strip()
+    # Remove <input> tags if present
+    cleaned = re.sub(r"<\/?input>", "", cleaned)
     # Remove <output> tags if present
     cleaned = re.sub(r"<\/?output>", "", cleaned)
+    # Remove <content> tags if present
+    cleaned = re.sub(r"<\/?content>", "", cleaned)
+    # Remove headers, footers, and separators
+    cleaned = cleaned.replace(INPUT_HEADER, "").replace(INPUT_FOOTER, "").replace(INPUT_SEPARATOR, "")
+    cleaned = cleaned.replace(TOOL_HEADER, "").replace(TOOL_FOOTER, "")
+    # Final trim
     cleaned = cleaned.strip()
     return cleaned
 
@@ -160,6 +175,11 @@ def sanitize_output_string(output: str) -> str:
 class SingletonMeta(type):
     _instances = {}
 
+    def __call__(cls, *args, **kwargs):
+        # Todo: control the behavior based on the configuration. Don't create a new instance if the configuration already exists.
+        if cls not in cls._instances:
+            cls._instances[cls] = super().__call__(*args, **kwargs)
+        return cls._instances[cls]
     def __call__(cls, *args, **kwargs):
         # Todo: control the behavior based on the configuration. Don't create a new instance if the configuration already exists.
         if cls not in cls._instances:

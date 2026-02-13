@@ -1,4 +1,3 @@
-import threading
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -8,7 +7,6 @@ from litellm import (
     CustomStreamWrapper,
     ModelResponse,
 )
-from transformers import BitsAndBytesConfig
 from transformers.tokenization_utils_base import BatchEncoding
 
 from ..gbc_object import GBC, GBCBase
@@ -94,6 +92,7 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
             tools = tools,
             add_generation_prompt = True,
             tokenize = False,
+            enable_thinking = self.config.enable_thinking,
         )
         if not conversations_processed:
             raise ValueError("No conversations processed. Please check the input messages.")
@@ -111,9 +110,9 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
         first_occurrence = messages_processed.find(tag)
         second_occurrence = messages_processed.find(tag, first_occurrence + len(tag))
         if second_occurrence == -1:
-            return first_occurrence
+            return first_occurrence, 0
         else:
-            return second_occurrence
+            return second_occurrence, 1
 
     def _get_input_blocks_and_encodings(self, conversations_processed: List[str]) -> Tuple[List[List[Tuple[int, int]]], BatchEncoding]:
         """
@@ -132,10 +131,14 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
         tool_header_indices = list()
         tool_footer_indices = list()
         for messages_processed in conversations_processed:
-            input_header_indices.append(self._find_initial_tag_index(messages_processed, INPUT_HEADER))
-            input_footer_indices.append(self._find_initial_tag_index(messages_processed, INPUT_FOOTER))
+            input_header_idx, input_header_flag = self._find_initial_tag_index(messages_processed, INPUT_HEADER)
+            input_footer_idx, input_footer_flag = self._find_initial_tag_index(messages_processed, INPUT_FOOTER)
+            assert input_header_flag == input_footer_flag, \
+                f"Mismatched number of INPUT_HEADER and INPUT_FOOTER tags in the processed messages. Please check the input messages."
+            input_header_indices.append(input_header_idx)
+            input_footer_indices.append(input_footer_idx)
             input_separator_indices_temp = []
-            sep_pos = messages_processed.find(INPUT_SEPARATOR) + len(INPUT_SEPARATOR)
+            sep_pos = messages_processed.find(INPUT_SEPARATOR) + len(INPUT_SEPARATOR) if input_header_flag == 1 else 0
             while True:
                 sep_pos = messages_processed.find(INPUT_SEPARATOR, sep_pos)
                 if sep_pos == -1:
@@ -308,7 +311,7 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
         # Input_blocks is a list of lists, where each inner list contains tuples of (block_start[included], block_end[included])
 
         # Generate the model's response
-        outputs = self.model.generate(**encoding, **self.config.get_local_configuration(include_model=False))
+        outputs = self.model.generate(**encoding, **self.config.get_local_configuration(include_model=False), gradient_blocks=input_blocks)
         sequences = outputs.sequences  # (batch_size, total_sequence_length)
         gradients = outputs.gradients
         # If FINEGRAINED: (batch_size, output_sequence_length, input_sequence_length, hidden_size)

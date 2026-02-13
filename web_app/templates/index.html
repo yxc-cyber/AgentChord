@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Graph - NetworkX Visualizer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="card-title mb-0">📁 Upload NetworkX Graph</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Upload a pickled NetworkX graph file (.pkl or .pickle) to visualize it with interactive drag-and-drop functionality.
+                </p>
+                
+                <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Choose Graph File</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".pkl,.pickle" required>
+                        <div class="form-text">
+                            Only .pkl and .pickle files are supported. Maximum file size: 16MB
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            🚀 Upload and Visualize
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">💡 Features</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li>✅ Interactive drag-and-drop nodes</li>
+                    <li>✅ Edge labels displayed above connections</li>
+                    <li>✅ Node and edge tooltips with metadata</li>
+                    <li>✅ Refresh button to reset node positions</li>
+                    <li>✅ Zoom and pan functionality</li>
+                    <li>✅ Support for directed and undirected graphs</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <p class="text-muted">
+                Alternatively, you can <a href="{{ url_for('path_input') }}" class="text-decoration-none">input a file path directly</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

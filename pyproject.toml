@@ -6,7 +6,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "accelerate>=1.7.0",
+    "autoawq>=0.2.9",
     "bitsandbytes>=0.46.0",
+    "compressed-tensors>=0.13.0",
+    "flask>=3.1.2",
     "fuzzywuzzy>=0.18.0",
     "gitpython>=3.1.44",
     "litellm>=1.59.8",
@@ -20,6 +23,7 @@ dependencies = [
     "torch>=2.7.0",
     "transformers>=4.52.3",
     "wandb>=0.21.0",
+    "werkzeug>=3.1.3",
 ]
 
 [project.scripts]

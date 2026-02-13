@@ -14,13 +14,9 @@ TERMINATE_DESCRIPTION = {
                     "type": "string",
                     "description": "The output of the current agent turn. Make it as concise as possible."
                 },
-                "note": {
-                    "type": "string",
-                    "description": "A note left for the next agent, additional information is necessart to the next agent. Usually should be empty. Make it as concise as possible."
-                },
             },
             "additionalProperties": False,
-            "required": ["output", "note"]
+            "required": ["output"]
         }
     }
 }
@@ -32,5 +28,5 @@ class InnerEnvironment(BaseEnvironment):
         super().__init__(initial_metadata)
         self.register_tool(self.TERMINATE, TERMINATE_DESCRIPTION, self._terminate)
 
-    def _terminate(self, output: str, note: str) -> str:
-        return json.dumps({"output": str(output), "note": str(note)})
+    def _terminate(self, output: str) -> str:
+        return json.dumps({"output": str(output)})

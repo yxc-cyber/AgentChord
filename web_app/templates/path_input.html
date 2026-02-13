@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Input Path - NetworkX Visualizer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="card-title mb-0">📂 Input File Path</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Enter the absolute path to a pickled NetworkX graph file on your system.
+                </p>
+                
+                <form action="{{ url_for('load_from_path') }}" method="post">
+                    <div class="mb-3">
+                        <label for="file_path" class="form-label">File Path</label>
+                        <input type="text" class="form-control" id="file_path" name="file_path" 
+                               placeholder="/path/to/your/graph.pkl" required>
+                        <div class="form-text">
+                            Enter the full path to your pickled NetworkX graph file
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            🔍 Load and Visualize
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">📝 Example Paths</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-2">Some example file paths:</p>
+                <ul class="list-unstyled">
+                    <li><code>/home/user/graph.pkl</code></li>
+                    <li><code>/tmp/my_network.pickle</code></li>
+                    <li><code>/data/graphs/social_network.pkl</code></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <p class="text-muted">
+                Or go back to <a href="{{ url_for('index') }}" class="text-decoration-none">file upload</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -113,6 +113,8 @@ class BaseAgentSystem:
         elif self.inner_environment and self.inner_environment.get_tool_descriptions():
             self.tool_descriptions = list(self.inner_environment.get_tool_descriptions().values())
             self.tool_description_dict = deepcopy(self.inner_environment.get_tool_descriptions())
+        if self.tools is None:
+            self.tools = list(self.environment.get_tool_descriptions().keys())
 
     def add_subsystem(self, subsystem: Self):
         subsystem_name = subsystem.system_name
