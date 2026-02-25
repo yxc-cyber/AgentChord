@@ -48,6 +48,7 @@ class Multiwoz24Environment(BaseEnvironment):
         if not cls.pre_initialized:
             # Check if the MultiWOZ 2.4 dataset is already cloned, if not, clone it
             if not os.path.exists(DATA_PATH):
+                print("MultiWOZ 2.4 dataset is not found. Cloning the dataset...")
                 Repo.clone_from(REPO_URL, DATA_PATH)
                 print(f"Repository cloned to {DATA_PATH}")
                 # Change the current working directory to the cloned repository

@@ -65,6 +65,6 @@ Some inputs may be useless, so you only focus on the useful inputs.
 When you decide to generate an output for the next agent or the user, you should use the "terminate" tool to return the output.
 If you are instructed to output a certain format, put the output in the "output" field of the "terminate" tool.
 If you are instructed to output a JSON object, please put the JSON object in the "output" field of the "terminate" tool. Don't take the keys of the JSON object as the parameters of a tool.
-Please make the response/output as concise as possible. Try to limit it within 200 tokens.
+Please make the response/output as concise as possible. Try to limit it within 128 tokens.
 Don't generate a response/output without putting it in the "terminate" tool.
 """.strip()
