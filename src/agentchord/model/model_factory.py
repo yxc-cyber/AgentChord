@@ -16,6 +16,9 @@ class ModelFactory:
             if self.config.local_model == "Qwen3Model":
                 from .qwen3_model import Qwen3Model
                 return Qwen3Model(self.config)
+            if self.config.local_model == "Gemma3Model":
+                from .gemma3_model import Gemma3Model
+                return Gemma3Model(self.config)
             else:
                 raise ValueError(f"Unsupported local model: {self.config.local_model}")
         else:

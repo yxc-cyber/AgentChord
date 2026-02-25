@@ -33,5 +33,5 @@ uv run python experiments/multiwoz_24_experiments/new_experiments/[Qwen3-32B]_[p
 
 
 echo "=========================================="
-echo "All training completed successfully!"
+echo "All training completed!"
 echo "=========================================="

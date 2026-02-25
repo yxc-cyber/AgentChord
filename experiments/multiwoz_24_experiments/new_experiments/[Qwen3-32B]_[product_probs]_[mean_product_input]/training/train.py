@@ -1,9 +1,9 @@
+import itertools
 import json
 import os
 import re
-import itertools
-from typing import List
 from copy import deepcopy
+from typing import List
 
 import torch
 from transformers import BitsAndBytesConfig
@@ -34,7 +34,7 @@ RESUME_DIR = None
 SKIP_SAMPLES = 0
 # model loading configuration
 LOCAL_MODEL = "Qwen3Model"
-MODEL_PATH = "/shared/storage-01/users/xy61/models/Qwen3-32B"
+MODEL_PATH = "/work/hdd/bghs/xyang7/models/Qwen3-32B"
 CHAT_TEMPLATE_PATH = "src/agentchord/model/chat_templates/tool_chat_template_qwen3_json.jinja"
 
 prompt_manager = """
@@ -129,7 +129,7 @@ config = ModelConfig(
     local_model=LOCAL_MODEL,
     model_path=MODEL_PATH,
     quantization_config=bnb_config,
-    max_new_tokens=256,
+    max_new_tokens=128,
     # temperature=0.0,
     do_sample=False,
     gradient_strategy=GRADIENT_STRATEGY,
@@ -436,7 +436,7 @@ for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_
         optimizer.save_optimizer_state(file_path=os.path.join(WORKING_DIR, f"checkpoint-{optimization_steps}/optimizer_state.json"))
         dialogue_idx_pool = list()
     
-    if dialogue_idx >= 2:
+    if dialogue_idx >= 29:
         break
 
 optimizer.finish_wandb()
