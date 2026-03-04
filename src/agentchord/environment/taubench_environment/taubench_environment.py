@@ -4,7 +4,7 @@ from typing import Iterator, List, Literal, Optional, Self, Union
 from ...metadata import TaubenchMetaData
 from ...model import ModelConfig
 from ..base_environment import BaseEnvironment
-from .utils import REPO_URL, USER_INIT_MESSAGE, USER_PROMPT_TEMPLATE
+from .utils import REPO_URL, STOP_SIGNAL, USER_INIT_MESSAGE, USER_PROMPT_TEMPLATE
 
 
 class TaubenchEnvironment(BaseEnvironment):
@@ -427,7 +427,7 @@ class TaubenchEnvironment(BaseEnvironment):
             self.user = BaseAgent(
                 system_name="user",
                 environment=BaseEnvironment(),  # User simulator does not need an environment reference since it only responds to prompts
-                prompt=USER_PROMPT_TEMPLATE.format(profile=f"Domain: {self.domain}\nTask Instruction: {self.task.instruction}"),
+                prompt=USER_PROMPT_TEMPLATE.format(profile=self.task.instruction),
                 model_config=self.user_model_config,
                 maximum_loops=1,  # User simulator only responds once per turn
                 log_name=self.user_log_name,
@@ -454,4 +454,6 @@ class TaubenchEnvironment(BaseEnvironment):
             message = USER_INIT_MESSAGE
         user_meta_data = self.user.run(input=message)
         response = user_meta_data.output
+        if STOP_SIGNAL in response:
+            self.set_done()
         return response
