@@ -222,13 +222,25 @@ class TaubenchEnvironment(BaseEnvironment):
             # is not needed in the AgentChord evaluation loop.
             if function_name == "think":
                 continue
-            self.register_tool(
-                function_name,
-                tool_description,
-                lambda tool_idx=tool_idx, _tools=_ALL_TOOLS, **kwargs: _tools[
-                    tool_idx
-                ].invoke(self.data, **kwargs),
-            )
+            # The "transfer_to_human_agents" tool is handled separately in the
+            # agent system since it does not modify the environment state and
+            # instead signals that the user should be engaged directly. We still
+            # want to register it as a tool so that it can be called by the agent,
+            # but its implementation is handled at the agent system level.
+            if function_name == "transfer_to_human_agents":
+                self.register_tool(
+                    function_name,
+                    tool_description,
+                    lambda tool_idx=tool_idx, _tools=_ALL_TOOLS, **kwargs: self._transfer_to_human_agents(_tools[tool_idx], self.data, **kwargs),
+                )
+            else:
+                self.register_tool(
+                    function_name,
+                    tool_description,
+                    lambda tool_idx=tool_idx, _tools=_ALL_TOOLS, **kwargs: _tools[
+                        tool_idx
+                    ].invoke(self.data, **kwargs),
+                )
 
         # ------------------------------------------------------------------ #
         # Build the initial metadata that the agent system will receive
@@ -259,6 +271,11 @@ class TaubenchEnvironment(BaseEnvironment):
                     rules=rules_content,
                 )
             )
+
+    def _transfer_to_human_agents(self, tool, data, summary):
+        result = tool.invoke(data=data, summary=summary)
+        self.set_done()
+        return result
 
     # ---------------------------------------------------------------------- #
     # State accessors
