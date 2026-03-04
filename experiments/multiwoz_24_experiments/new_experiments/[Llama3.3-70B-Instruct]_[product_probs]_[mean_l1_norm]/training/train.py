@@ -29,9 +29,9 @@ GRADIENT_STRATEGY = "product_probs"
 CONNECTION_STRATEGY = "mean_l1_norm"
 MODEL = "Llama3.3-70B-Instruct"
 # training resume configuration
-RESUME_DIR = None
-# RESUME_DIR = "experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/training/checkpoint-3"
-SKIP_SAMPLES = 0
+# RESUME_DIR = None
+RESUME_DIR = "experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/training/checkpoint-9"
+SKIP_SAMPLES = 27
 # model loading configuration
 LOCAL_MODEL = "LlamaModel"
 MODEL_PATH = "/work/hdd/bghs/xyang7/models/Llama-3.3-70B-Instruct"

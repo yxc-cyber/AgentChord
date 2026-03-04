@@ -10,6 +10,11 @@ wandb/
 *.err
 *.out
 vllm_server.log
+analyze*.py
+/*.png
+/*.csv
+reasoning_analysis_output.log
+script_output.log
 
 # Large files
 src/agentchord/environment/multiwoz_24_environment/MultiWOZ2.4/

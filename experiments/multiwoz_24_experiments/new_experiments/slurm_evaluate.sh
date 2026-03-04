@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name="agentchord_qwen3_32b"
-#SBATCH --output="logs/%j.%N.agentchord_qwen3_32b.out"
+#SBATCH --job-name="agentchord_eval"
+#SBATCH --output="logs/%j.%N.agentchord_eval.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=208G
 #SBATCH --nodes=1
@@ -27,11 +27,11 @@ conda activate
 
 
 # Run the vLLM host server in the background
-vllm serve $SCRATCH/models/Qwen3-32B \
-        --served-model-name Qwen3-32B \
+vllm serve $SCRATCH/models/Llama-3.3-70B-Instruct \
+        --served-model-name Llama3.3-70B-Instruct \
         --enable-auto-tool-choice \
         --tool-call-parser hermes \
-        --chat-template src/agentchord/model/chat_templates/tool_chat_template_qwen3_json.jinja \
+        --chat-template src/agentchord/model/chat_templates/tool_chat_template_llama3.3_json.jinja \
         --tensor-parallel-size 4 \
         --quantization fp8 \
         --max-model-len 16384 \
@@ -50,33 +50,36 @@ until [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:1911/health)"
 done
 
 
-# Evaluation script for Qwen3-32B experiments with different connection strategies
+# Evaluation script for Llama3.3-70B-Instruct experiments with different connection strategies
 
-echo "Starting evaluation for Qwen3-32B experiments..."
+echo "Starting evaluation for Llama3.3-70B-Instruct experiments..."
 
-# Evaluate with max_l1_norm connection strategy
+# # Evaluate with max_l1_norm connection strategy
 # echo "=========================================="
 # echo "Evaluation: max_l1_norm"
 # echo "=========================================="
-# uv run python experiments/multiwoz_24_experiments/new_experiments/[Qwen3-32B]_[product_probs]_[max_l1_norm]/evaluation_[Qwen3-32B]/evaluate.py
+# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_l1_norm]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
 # # Evaluate with max_product_input connection strategy
 # echo "=========================================="
 # echo "Evaluation: max_product_input"
-# uv run python experiments/multiwoz_24_experiments/new_experiments/[Qwen3-32B]_[product_probs]_[max_product_input]/evaluation_[Qwen3-32B]/evaluate.py
+# echo "=========================================="
+# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_product_input]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
 # # Evaluate with mean_l1_norm connection strategy
 # echo "=========================================="
 # echo "Evaluation: mean_l1_norm"
-# uv run python experiments/multiwoz_24_experiments/new_experiments/[Qwen3-32B]_[product_probs]_[mean_l1_norm]/evaluation_[Qwen3-32B]/evaluate.py
+# echo "=========================================="
+# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
 # Evaluate with mean_product_input connection strategy
 echo "=========================================="
 echo "Evaluation: mean_product_input"
-uv run python experiments/multiwoz_24_experiments/new_experiments/[Qwen3-32B]_[product_probs]_[mean_product_input]/evaluation_[Qwen3-32B]/evaluate.py
+echo "=========================================="
+uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_product_input]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
 echo "=========================================="

@@ -18,10 +18,10 @@ from agentchord import (
 )
 
 # evaluation configuration
-CHECKPOINT_DIR = "experiments/multiwoz_24_experiments/new_experiments/[Qwen3-32B]_[product_probs]_[max_l1_norm]/training"
-TARGET_DIR = "experiments/multiwoz_24_experiments/new_experiments/[Qwen3-32B]_[product_probs]_[max_l1_norm]/evaluation_[Qwen3-32B]"
-CLIENT_MODEL = "openai/Qwen3-32B"
-LOG_NAME = "[MultiWOZ]_[Qwen3-32B]_[Eval]_[product_probs]_[max_l1_norm].log"
+CHECKPOINT_DIR = "experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_l1_norm]/training"
+TARGET_DIR = "experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_l1_norm]/evaluation_[Llama3.3-70B-Instruct]"
+CLIENT_MODEL = "openai/Llama3.3-70B-Instruct"
+LOG_NAME = "[MultiWOZ]_[Llama3.3-70B-Instruct]_[Eval]_[product_probs]_[max_l1_norm].log"
 
 # Configuration for the model
 config = ModelConfig(
