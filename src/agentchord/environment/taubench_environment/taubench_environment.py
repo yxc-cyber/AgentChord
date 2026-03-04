@@ -1,15 +1,10 @@
 import os
-from typing import Iterator, Literal, Optional, Self
+from typing import Iterator, List, Literal, Optional, Self, Union
 
 from ...metadata import TaubenchMetaData
+from ...model import ModelConfig
 from ..base_environment import BaseEnvironment
-from .utils import (
-    FINISH_TASK_TOOL_DESCRIPTION,
-    REPO_URL,
-    RESPOND_ACTION_NAME,
-    RESPOND_TOOL_DESCRIPTION,
-    TERMINATE_ACTION_NAME,
-)
+from .utils import REPO_URL, USER_INIT_MESSAGE, USER_PROMPT_TEMPLATE
 
 
 class TaubenchEnvironment(BaseEnvironment):
@@ -104,9 +99,8 @@ class TaubenchEnvironment(BaseEnvironment):
     def iterate_test_cases(
         cls,
         domain: Literal["airline", "retail"],
-        task_split: str = "test",
+        task_split: Literal["train", "dev", "test"] = "test",
         random_seed: Optional[int] = None,
-        max_tasks: Optional[int] = None,
     ) -> Iterator[Self]:
         """
         Yield one ``TaubenchEnvironment`` instance per task in the requested split.
@@ -119,19 +113,19 @@ class TaubenchEnvironment(BaseEnvironment):
             ``"test"``, ``"train"``, or ``"dev"`` (airline only supports ``"test"``)
         random_seed:
             When provided, tasks are yielded in a reproducible shuffled order.
-        max_tasks:
-            If set, at most this many tasks are yielded.
         """
         cls.pre_initialize()
+        if domain not in cls.tasks:
+            raise ValueError(f"Domain '{domain}' not found. Available domains: {list(cls.tasks.keys())}")
+        if task_split not in cls.tasks[domain]:
+            raise ValueError(f"No tasks found for domain '{domain}' and task_split '{task_split}'. The '{domain}' domain supports the following task_split: {list(cls.tasks.get(domain, {}).keys())}")
         task_list = cls.tasks[domain][task_split]
-        indices = list(range(len(task_list)))
+        task_indices = list(range(len(task_list)))
         if random_seed is not None:
             import random as _random
             rng = _random.Random(random_seed)
-            rng.shuffle(indices)
-        if max_tasks is not None:
-            indices = indices[:max_tasks]
-        for task_idx in indices:
+            rng.shuffle(task_indices)
+        for task_idx in task_indices:
             yield cls(domain=domain, task_split=task_split, task_idx=task_idx)
 
     @classmethod
@@ -139,6 +133,7 @@ class TaubenchEnvironment(BaseEnvironment):
         cls,
         domain: Literal["airline", "retail"],
         task_split: str = "test",
+        task_indices: Optional[Union[List[int], int]] = None,
     ) -> TaubenchMetaData:
         """
         Aggregate per-task rewards that have been stored by ``evaluate()``.
@@ -148,6 +143,11 @@ class TaubenchEnvironment(BaseEnvironment):
         """
         cls.pre_initialize()
         split_records = cls.evaluation_record.get(domain, {}).get(task_split, {})
+        split_records = {
+            idx: record for idx, record in split_records.items()
+            if task_indices is None
+            or idx in task_indices or (isinstance(task_indices, int) and idx == task_indices)
+        }
         total_reward = sum(m.reward for m in split_records.values())
         total_tasks = len(split_records)
         mean_reward = total_reward / max(total_tasks, 1)
@@ -166,8 +166,10 @@ class TaubenchEnvironment(BaseEnvironment):
     def __init__(
         self,
         domain: Literal["airline", "retail"] = "retail",
-        task_split: str = "test",
+        task_split: Literal["train", "dev", "test"] = "test",
         task_idx: int = 0,
+        user_model_config: Optional[ModelConfig] = None,
+        user_log_name: str = "",
     ):
         """
         Parameters
@@ -178,12 +180,22 @@ class TaubenchEnvironment(BaseEnvironment):
             ``"test"``, ``"train"``, or ``"dev"``
         task_idx:
             Zero-based index of the task within the split.
+        user_model_config:
+            Optional ModelConfig to use for the user simulator.  If *None*, the online interaction will not work.
+        user_log_name:
+            Optional string to use as the base name for logs of the user simulator's responses.
         """
+        from ...agent_system import Input
+        from ...gbc_object import GBC
+
         super().__init__()
 
         self.domain = domain
         self.task_split = task_split
         self.task_idx = task_idx
+        self.user_model_config = user_model_config
+        self.user_log_name = user_log_name
+        self.init_user_simulator()
 
         # ------------------------------------------------------------------ #
         # Load a fresh copy of the database for this task instance
@@ -219,44 +231,34 @@ class TaubenchEnvironment(BaseEnvironment):
             )
 
         # ------------------------------------------------------------------ #
-        # Register framework-level tools (respond + finish_task)
-        # ------------------------------------------------------------------ #
-        self.register_tool(
-            RESPOND_ACTION_NAME,
-            RESPOND_TOOL_DESCRIPTION,
-            lambda output="": output,  # Simply echoes back; user sim is external
-        )
-        self.register_tool(
-            TERMINATE_ACTION_NAME,
-            FINISH_TASK_TOOL_DESCRIPTION,
-            lambda: (self.set_done() or "Task marked as complete."),
-        )
-
-        # ------------------------------------------------------------------ #
         # Build the initial metadata that the agent system will receive
         # ------------------------------------------------------------------ #
-        task = self.__class__.tasks[domain][task_split][task_idx]
+        self.task = self.__class__.tasks[domain][task_split][task_idx]
 
         # Compose the note field from the domain wiki and any explicit rules
         wiki_content = self.__class__.wiki.get(domain, "")
         rules_content = self.__class__.rules.get(domain, [])
-        note_parts = []
-        if wiki_content:
-            note_parts.append(wiki_content)
-        if rules_content:
-            note_parts.append("\n".join(rules_content))
-        note = "\n\n".join(note_parts)
+        rules_content = "\n".join(f"Rule {i+1}: {rule}" for i, rule in enumerate(rules_content))
 
-        self.set_initial_metadata(
-            TaubenchMetaData(
-                input=task.instruction,
-                note=note,
-                instruction=task.instruction,
-                task_idx=task_idx,
-                domain=domain,
-                task_split=task_split,
+        if self.user is not None:
+            first_user_response = GBC(self.user_response(), subject=Input())
+            self.set_initial_metadata(
+                TaubenchMetaData(
+                    input=first_user_response,
+                    instruction=self.task.instruction,
+                    wiki=wiki_content,
+                    rules=rules_content,
+                    user_responses=[first_user_response],
+                )
             )
-        )
+        else:
+            self.set_initial_metadata(
+                TaubenchMetaData(
+                    instruction=self.task.instruction,
+                    wiki=wiki_content,
+                    rules=rules_content,
+                )
+            )
 
     # ---------------------------------------------------------------------- #
     # State accessors
@@ -276,6 +278,7 @@ class TaubenchEnvironment(BaseEnvironment):
             self.__class__.evaluation_record[self.domain] = {}
         if self.task_split not in self.__class__.evaluation_record[self.domain]:
             self.__class__.evaluation_record[self.domain][self.task_split] = {}
+        self.__class__.evaluation_record[self.domain][self.task_split][self.task_idx] = TaubenchMetaData()
 
     def evaluate(self, metadata: TaubenchMetaData) -> TaubenchMetaData:
         """
@@ -294,25 +297,23 @@ class TaubenchEnvironment(BaseEnvironment):
         """
         self.init_evaluation_record()
 
-        task = self.__class__.tasks[self.domain][self.task_split][self.task_idx]
         ground_truth_actions = [
-            {"tool_name": a.name, "tool_arguments": a.kwargs} for a in task.actions
+            {"tool_name": a.name, "tool_arguments": a.kwargs} for a in self.task.actions
         ]
-        ground_truth_outputs = task.outputs
+        ground_truth_outputs = self.task.outputs
 
-        reward = self._compute_reward(
+        reward, reward_detail = self._compute_reward(
             database_state=self.get_database_state(),
             actions=metadata.tool,
+            responses=metadata.responses,
             domain=self.domain,
             ground_truth_actions=ground_truth_actions,
             ground_truth_outputs=ground_truth_outputs,
         )
 
         metadata.reward = reward
-        metadata.task_idx = self.task_idx
-        metadata.domain = self.domain
-        metadata.task_split = self.task_split
-        metadata.instruction = task.instruction
+        metadata.reward_details = reward_detail
+        metadata.instruction = self.task.instruction
 
         self.__class__.evaluation_record[self.domain][self.task_split][
             self.task_idx
@@ -327,6 +328,7 @@ class TaubenchEnvironment(BaseEnvironment):
     def _compute_reward(
         database_state: dict,
         actions: list,
+        responses: List[str],
         domain: str,
         ground_truth_state: Optional[dict] = None,
         ground_truth_actions: Optional[list] = None,
@@ -363,7 +365,6 @@ class TaubenchEnvironment(BaseEnvironment):
             ``respond`` calls.
         """
         from tau_bench.envs.base import consistent_hash, to_hashable
-        from tau_bench.types import RewardActionInfo
 
         if ground_truth_state is None and ground_truth_actions is None:
             raise ValueError(
@@ -376,14 +377,10 @@ class TaubenchEnvironment(BaseEnvironment):
         if ground_truth_state is None:
             gt_env = TaubenchEnvironment(domain=domain)
             for action in ground_truth_actions:
-                if action["tool_name"] not in (
-                    RESPOND_ACTION_NAME,
-                    TERMINATE_ACTION_NAME,
-                ):
-                    gt_env.apply_tool(
-                        tool_name=action["tool_name"],
-                        tool_arguments=action["tool_arguments"],
-                    )
+                gt_env.apply_tool(
+                    tool_name=action["tool_name"],
+                    tool_arguments=action["tool_arguments"],
+                )
             ground_truth_state = gt_env.get_database_state()
 
         # ------------------------------------------------------------------ #
@@ -391,28 +388,70 @@ class TaubenchEnvironment(BaseEnvironment):
         # ------------------------------------------------------------------ #
         data_hash = consistent_hash(to_hashable(database_state))
         ground_truth_hash = consistent_hash(to_hashable(ground_truth_state))
-        info = RewardActionInfo(
-            r_actions=data_hash == ground_truth_hash,
-            gt_data_hash=ground_truth_hash,
-        )
-        reward = 1.0 if info.r_actions else 0.0
+        r_actions = data_hash == ground_truth_hash
+        reward = 1.0 if r_actions else 0.0
 
         # ------------------------------------------------------------------ #
         # Check required output substrings
         # ------------------------------------------------------------------ #
+        r_outputs = True
         if ground_truth_outputs and len(ground_truth_outputs) > 0:
             for required_output in ground_truth_outputs:
                 found = any(
-                    action["tool_name"] == RESPOND_ACTION_NAME
-                    and required_output.lower()
-                    in action["tool_arguments"]
-                    .get("output", "")
-                    .lower()
-                    .replace(",", "")
-                    for action in actions
+                    required_output.lower() in response.lower().replace(",", "") for response in responses
                 )
                 if not found:
                     reward = 0.0
+                    r_outputs = False
                     break
 
-        return reward
+        reward_detail = {
+            "groundtruth_actions": ground_truth_actions,
+            "actions": actions,
+            "action_match": r_actions,
+            "groundtruth_outputs": ground_truth_outputs,
+            "responses": responses,
+            "output_match": r_outputs,
+        }
+
+        return reward, reward_detail
+    
+    # ---------------------------------------------------------------------- #
+    # Online interaction logic
+    # ---------------------------------------------------------------------- #
+
+    def init_user_simulator(self):
+        """Initialize the user simulator if a user_model_config was provided."""
+        if self.user_model_config is not None:
+            from ...agent_system import BaseAgent
+            self.user = BaseAgent(
+                system_name="user",
+                environment=BaseEnvironment(),  # User simulator does not need an environment reference since it only responds to prompts
+                prompt=USER_PROMPT_TEMPLATE.format(profile=f"Domain: {self.domain}\nTask Instruction: {self.task.instruction}"),
+                model_config=self.user_model_config,
+                maximum_loops=1,  # User simulator only responds once per turn
+                log_name=self.user_log_name,
+            )
+        else:
+            self.user = None
+
+    def user_response(self, message: Optional[str] = None) -> str:
+        """
+        Send a message to the user simulator and receive a response.
+
+        Parameters
+        ----------
+        message:
+            The message to send to the user simulator.
+        Returns
+        -------
+        str
+            The user simulator's response.
+        """
+        if self.user is None:
+            raise Exception("User simulator not initialized. Please provide a user_model_config when constructing the environment.")
+        if message is None:
+            message = USER_INIT_MESSAGE
+        user_meta_data = self.user.run(input=message)
+        response = user_meta_data.output
+        return response
