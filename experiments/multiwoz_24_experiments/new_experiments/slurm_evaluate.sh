@@ -30,7 +30,7 @@ conda activate
 vllm serve $SCRATCH/models/Llama-3.3-70B-Instruct \
         --served-model-name Llama3.3-70B-Instruct \
         --enable-auto-tool-choice \
-        --tool-call-parser hermes \
+        --tool-call-parser llama3_json \
         --chat-template src/agentchord/model/chat_templates/tool_chat_template_llama3.3_json.jinja \
         --tensor-parallel-size 4 \
         --quantization fp8 \
