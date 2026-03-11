@@ -154,6 +154,7 @@ class Multiwoz24System(BaseAgentSystem):
             f"restaurant_worker_agent:\n{metadata.output[0]}",
             f"hotel_worker_agent:\n{metadata.output[1]}",
             f"attraction_worker_agent:\n{metadata.output[2]}",
+            f"taxi_worker_agent:\n{metadata.output[3]}",
             f"train_worker_agent:\n{metadata.output[4]}",
         ]
 
