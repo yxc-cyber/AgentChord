@@ -131,7 +131,7 @@ class Multiwoz24System(BaseAgentSystem):
     def on_initialization(self) -> MultiWOZ24MetaData:
         metadata = self.environment.get_initial_metadata()
         grounding_utterance = metadata.grounding_utterance
-        metadata.input = "Dialogue History:\n{grounding_utterance}"
+        metadata.input = f"Dialogue History:\n{grounding_utterance}"
         return metadata
     
     def _manage(self, metadata: MultiWOZ24MetaData) -> MultiWOZ24MetaData:

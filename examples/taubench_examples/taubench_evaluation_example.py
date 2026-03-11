@@ -50,6 +50,15 @@ class TaubenchRetailSystem(BaseAgentSystem):
             maximum_loops=maximum_loops,
             log_name=log_name
         )
+        WorkerAgent_INFO = BaseAgent(
+            system_name="worker_agent(info)",
+            environment=environment,
+            prompt="",
+            tools=["list_all_product_types"],
+            model_config=config,
+            maximum_loops=maximum_loops,
+            log_name=log_name
+        )
         WorkerAgent_FIND_USER = BaseAgent(
             system_name="worker_agent(find_user)",
             environment=environment,
@@ -122,12 +131,13 @@ class TaubenchRetailSystem(BaseAgentSystem):
             system_name="responder_agent",
             environment=environment,
             prompt="",
-            tools=[],
+            tools=["transfer_to_human_agents"],
             model_config=config,
             maximum_loops=maximum_loops,
             log_name=log_name
         )
         self.add_subsystem(ManagerAgent)
+        self.add_subsystem(WorkerAgent_INFO)
         self.add_subsystem(WorkerAgents)
         self.add_subsystem(ResponderAgent)
 
@@ -136,8 +146,17 @@ class TaubenchRetailSystem(BaseAgentSystem):
 
     def on_initialization(self) -> TaubenchMetaData:
         metadata = self.environment.get_initial_metadata()
-        grounding_utterance = metadata.grounding_utterance
-        metadata.input = "Dialogue History:\n{grounding_utterance}"
+        dialogue_history_list = list()
+        system_responses_num = len(metadata.responses)
+        assert system_responses_num == len(metadata.user_responses) - 1, "The number of system responses should be equal to the number of user responses minus one."
+        for idx in range(system_responses_num):
+            user_response = metadata.user_responses[idx]
+            system_response = metadata.responses[idx]
+            dialogue_history_list.append(f"User Response:\n{user_response}")
+            dialogue_history_list.append(f"System Response:\n{system_response}")
+        dialogue_history_list.append(f"User Response:\n{metadata.user_responses[-1]}")
+        dialogue_history = "\n".join(dialogue_history_list)
+        metadata.input = f"Dialogue History:\n{dialogue_history}"
         return metadata
     
     def _manage(self, metadata: TaubenchMetaData) -> TaubenchMetaData:
@@ -166,12 +185,25 @@ class TaubenchRetailSystem(BaseAgentSystem):
         Finalize the metadata after the worker agents have generated their outputs.
         Update the dialogue state in the metadata based on the tool usage.
         """
+        dialogue_history_list = list()
+        system_responses_num = len(metadata.responses)
+        assert system_responses_num == len(metadata.user_responses) - 1, "The number of system responses should be equal to the number of user responses minus one."
+        for idx in range(system_responses_num):
+            user_response = metadata.user_responses[idx]
+            system_response = metadata.responses[idx]
+            dialogue_history_list.append(f"User Response:\n{user_response}")
+            dialogue_history_list.append(f"System Response:\n{system_response}")
+        dialogue_history_list.append(f"User Response:\n{metadata.user_responses[-1]}")
+        dialogue_history = "\n".join(dialogue_history_list)
+
         metadata.input = [
-            f"Dialogue History:\n{metadata.grounding_utterance}",
-            f"restaurant_worker_agent:\n{metadata.output[0]}",
-            f"hotel_worker_agent:\n{metadata.output[1]}",
-            f"attraction_worker_agent:\n{metadata.output[2]}",
-            f"train_worker_agent:\n{metadata.output[4]}",
+            f"Dialogue History:\n{dialogue_history}",
+            f"worker_agent(find_user):\n{metadata.output[0]}",
+            f"worker_agent(get_details):\n{metadata.output[1]}",
+            f"worker_agent(modify_order):\n{metadata.output[2]}",
+            f"worker_agent(cancel_order):\n{metadata.output[3]}",
+            f"worker_agent(return_order):\n{metadata.output[4]}",
+            f"worker_agent(modify_user):\n{metadata.output[5]}",
         ]
 
         tool_usage = metadata.tool
