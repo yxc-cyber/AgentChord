@@ -209,7 +209,7 @@ def convert_sets(obj):
     raise TypeError(f"Type {type(obj)} not serializable")
 
 total_record = dict()
-for checkpoint_idx in range(1, 11):
+for checkpoint_idx in range(6, 11):
     multiwoz_24_system.load_agents(file_name=os.path.join(CHECKPOINT_DIR, f"checkpoint-{checkpoint_idx}/multiwoz_24_agents.json"))
     dialogue_idx_pool = list()
     for dialogue_idx, dialogue_case in enumerate(Multiwoz24Environment.iterate_test_cases(mode="test", random_seed=42)):
