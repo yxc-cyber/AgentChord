@@ -14,10 +14,14 @@ INPUT = """
 </content>
 """.strip()
 
+# OUTPUT_NO_ACTION = """
+# The agent did not terminate by calling the "terminate" function. Instead, it returned the following content:
+# {content}
+# This might be what the previous agent wanted to leave for you.
+# """.strip()
+
 OUTPUT_NO_ACTION = """
-The agent did not terminate by calling the "terminate" function. Instead, it returned the following content:
 {content}
-This might be what the previous agent wanted to leave for you.
 """.strip()
 
 OUTPUT_TOO_MANY_ACTIONS = """
@@ -67,4 +71,11 @@ If you are instructed to output a certain format, put the output in the "output"
 If you are instructed to output a JSON object, please put the JSON object in the "output" field of the "terminate" tool. Don't take the keys of the JSON object as the parameters of a tool.
 Please make the response/output as concise as possible. Try to limit it within 128 tokens.
 Don't generate a response/output without putting it in the "terminate" tool.
+""".strip()
+
+USER_PROMPT_TEMPLATE = """
+{prompt}
+
+**Important Note**
+You are a user simulator.
 """.strip()
