@@ -241,6 +241,7 @@ for checkpoint_idx in range(6, 11):
         if dialogue_idx >= 99:  # Limit to 100 dialogues for testing
             break
     evaluation_result = Multiwoz24Environment.evaluate_test_cases(mode="test")
+    print(f"Saving evaluation results for checkpoint {checkpoint_idx} to {TARGET_DIR}...")
     evaluation_result.to_json(file_name=os.path.join(TARGET_DIR, f"checkpoint-{checkpoint_idx}_evaluation_result.json"))
     with open(os.path.join(TARGET_DIR, f"checkpoint-{checkpoint_idx}_total_record.json"), "w", encoding="utf-8") as f:
         json.dump(total_record, f, ensure_ascii=False, indent=2, default=convert_sets)
