@@ -17,6 +17,7 @@ from .prompt import (
     TOOL_HEADER,
     TOOL_INFO,
     TOOL_RESULT_INFO,
+    USER_PROMPT_TEMPLATE,
 )
 from .singleton_meta import SingletonMeta
 from .wandb import WandBConfig

@@ -144,7 +144,7 @@ class BaseAgent(BaseAgentSystem):
                         "content":tool_result
                     })
             else:
-                if output_message.content.startswith("<think>") and not output_message.content.endswith("</think>"):
+                if output_message.content.startswith("<think>") and not "</think>" in output_message.content:
                     self.logger.warning("Output content starts with <think> but does not end with </think>. Possible incomplete thinking.")
                     meta_data.output = OUTPUT_TOO_MUCH_THINKING
                 else:

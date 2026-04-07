@@ -7,7 +7,7 @@ REPO_URL = "https://github.com/sierra-research/tau-bench"
 
 # Prompts
 USER_PROMPT_TEMPLATE = """
-You are a user interacting with an agent.{profile}
+You are a user interacting with an agent. {profile}
 Rules:
 - Just generate one line at a time to simulate the user's message.
 - Do not give away all the instruction at once. Only provide the information that is necessary for the current step.

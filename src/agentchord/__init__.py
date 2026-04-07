@@ -3,6 +3,7 @@ from .environment import (
     BaseEnvironment,
     InnerEnvironment,
     Multiwoz24Environment,
+    Tau2benchEnvironment,
     TaubenchEnvironment,
 )
 from .gbc_object import GBC

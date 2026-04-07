@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
+import warnings
 
 LOG_PATH = "logs"
 
@@ -11,7 +12,7 @@ class Logger:
 
     def __init__(self, name: str, file_name: str = ""):
         if name in self.logger_names:
-            raise Exception(f"Logger {name} is already registered!")
+            warnings.warn(f"Logger {name} is already registered!")
         else:
             self.logger_names.append(name)
         self.logger = logging.getLogger(name)

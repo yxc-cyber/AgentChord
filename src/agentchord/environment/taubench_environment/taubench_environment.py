@@ -101,6 +101,8 @@ class TaubenchEnvironment(BaseEnvironment):
         domain: Literal["airline", "retail"],
         task_split: Literal["train", "dev", "test"] = "test",
         random_seed: Optional[int] = None,
+        user_model_config: Optional[ModelConfig] = None,
+        user_log_name: str = "",
     ) -> Iterator[Self]:
         """
         Yield one ``TaubenchEnvironment`` instance per task in the requested split.
@@ -126,7 +128,7 @@ class TaubenchEnvironment(BaseEnvironment):
             rng = _random.Random(random_seed)
             rng.shuffle(task_indices)
         for task_idx in task_indices:
-            yield cls(domain=domain, task_split=task_split, task_idx=task_idx)
+            yield cls(domain=domain, task_split=task_split, task_idx=task_idx, user_model_config=user_model_config, user_log_name=user_log_name)
 
     @classmethod
     def evaluate_test_cases(
@@ -152,8 +154,6 @@ class TaubenchEnvironment(BaseEnvironment):
         total_tasks = len(split_records)
         mean_reward = total_reward / max(total_tasks, 1)
         return TaubenchMetaData(
-            domain=domain,
-            task_split=task_split,
             mean_reward=mean_reward,
             total_tasks=total_tasks,
             reward=mean_reward,
@@ -195,6 +195,7 @@ class TaubenchEnvironment(BaseEnvironment):
         self.task_idx = task_idx
         self.user_model_config = user_model_config
         self.user_log_name = user_log_name
+        self.task = self.__class__.tasks[domain][task_split][task_idx]
         self.init_user_simulator()
 
         # ------------------------------------------------------------------ #
@@ -245,7 +246,6 @@ class TaubenchEnvironment(BaseEnvironment):
         # ------------------------------------------------------------------ #
         # Build the initial metadata that the agent system will receive
         # ------------------------------------------------------------------ #
-        self.task = self.__class__.tasks[domain][task_split][task_idx]
 
         # Compose the note field from the domain wiki and any explicit rules
         wiki_content = self.__class__.wiki.get(domain, "")
@@ -440,10 +440,9 @@ class TaubenchEnvironment(BaseEnvironment):
     def init_user_simulator(self):
         """Initialize the user simulator if a user_model_config was provided."""
         if self.user_model_config is not None:
-            from ...agent_system import BaseAgent
-            self.user = BaseAgent(
+            from ...agent_system import BaseUser
+            self.user = BaseUser(
                 system_name="user",
-                environment=BaseEnvironment(),  # User simulator does not need an environment reference since it only responds to prompts
                 prompt=USER_PROMPT_TEMPLATE.format(profile=self.task.instruction),
                 model_config=self.user_model_config,
                 maximum_loops=1,  # User simulator only responds once per turn
@@ -469,7 +468,7 @@ class TaubenchEnvironment(BaseEnvironment):
             raise Exception("User simulator not initialized. Please provide a user_model_config when constructing the environment.")
         if message is None:
             message = USER_INIT_MESSAGE
-        user_meta_data = self.user.run(input=message)
+        user_meta_data = self.user.execution(meta_data=TaubenchMetaData(input=f"Message from the other side: {message}"))
         response = user_meta_data.output
         if STOP_SIGNAL in response:
             self.set_done()
