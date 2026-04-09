@@ -54,18 +54,18 @@ done
 
 echo "Starting evaluation for Llama3.3-70B-Instruct experiments..."
 
-# # Evaluate with max_l1_norm connection strategy
-# echo "=========================================="
-# echo "Evaluation: max_l1_norm"
-# echo "=========================================="
-# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_l1_norm]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
+# Evaluate with max_l1_norm connection strategy
+echo "=========================================="
+echo "Evaluation: max_l1_norm"
+echo "=========================================="
+uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_l1_norm]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
-# # Evaluate with max_product_input connection strategy
-# echo "=========================================="
-# echo "Evaluation: max_product_input"
-# echo "=========================================="
-# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_product_input]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
+# Evaluate with max_product_input connection strategy
+echo "=========================================="
+echo "Evaluation: max_product_input"
+echo "=========================================="
+uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_product_input]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
 # # Evaluate with mean_l1_norm connection strategy
@@ -75,11 +75,11 @@ echo "Starting evaluation for Llama3.3-70B-Instruct experiments..."
 # uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
-# Evaluate with mean_product_input connection strategy
-echo "=========================================="
-echo "Evaluation: mean_product_input"
-echo "=========================================="
-uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_product_input]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
+# # Evaluate with mean_product_input connection strategy
+# echo "=========================================="
+# echo "Evaluation: mean_product_input"
+# echo "=========================================="
+# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_product_input]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
 echo "=========================================="

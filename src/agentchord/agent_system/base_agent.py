@@ -177,6 +177,42 @@ class BaseAgent(BaseAgentSystem):
     def messages_initialization(self):
         self.messages = [{"role": "system", "content": PROMPT_TEMPLATE.format(prompt=self.prompt)}]
 
+    def messages_simplification(
+            self,
+            remove_roles: Optional[List[str]] = None,
+            remove_tools: Optional[List[str]] = None,
+            keep_last_n: Optional[int] = None
+        ) -> List[dict]:
+        simplified_messages = self.messages
+        if remove_roles is not None:
+            simplified_messages = [message for message in simplified_messages if message["role"] not in remove_roles]
+        if remove_tools is not None:
+            simplified_messages = [
+                message
+                for message in simplified_messages
+                if not (
+                    (message["role"] == "tool" and message.get("name") in remove_tools)
+                    or (
+                        message["role"] == "assistant"
+                        and any(
+                            tool_call.get("function", {}).get("name") in remove_tools
+                            for tool_call in message.get("tool_calls", []) or []
+                        )
+                    )
+                )
+            ]
+        if keep_last_n is not None and simplified_messages:
+            prompt_message = simplified_messages[0]
+            remaining_messages = simplified_messages[1:]
+            if keep_last_n <= 0:
+                simplified_messages = [prompt_message]
+            elif len(remaining_messages) > keep_last_n:
+                simplified_messages = [prompt_message] + remaining_messages[-keep_last_n:]
+            else:
+                simplified_messages = [prompt_message] + remaining_messages
+        self.messages = simplified_messages
+        return simplified_messages
+
     def _get_pipeline_description_list(self) -> list:
         return list()
     
