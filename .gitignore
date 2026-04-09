@@ -18,3 +18,5 @@ script_output.log
 
 # Large files
 src/agentchord/environment/multiwoz_24_environment/MultiWOZ2.4/
+experiments/taubench_experiments/\[Llama3.3-70B-Instruct\]_\[baseline\]_\[Manager-Worker\]/retail/total_record.json
+experiments/taubench_experiments/\[Qwen3-32B\]_\[baseline\]_\[Manager-Worker\]/retail_old/total_record.json
