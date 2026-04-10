@@ -16,7 +16,7 @@ from agentchord import (
 # evaluation configuration
 CLIENT_MODEL = "openai/Qwen3-32B-FP8"
 USER_CLIENT_MODEL = "openai/gpt-4o-mini"
-LOG_NAME = "taubench_evaluation_example.log"
+LOG_NAME = "example.log"
 
 # Configuration for the models
 config = ModelConfig(
@@ -220,6 +220,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
         self.add_on_completion_action("responder_agent", "respond", self._respond)
 
         self.dialogue_history_string = ""
+        self.manager_agent_string = ""
 
     def on_initialization(self) -> TaubenchMetaData:
         metadata = self.environment.get_initial_metadata()
@@ -242,6 +243,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
         Finalize the metadata after the manager agent has generated the plan.
         """
         dialogue_history = self.dialogue_history_string
+        self.manager_agent_string = metadata.output
         metadata.input = [
             f"Dialogue History:\n{dialogue_history}",
             f"manager_agent:\n{metadata.output}",
@@ -255,6 +257,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
         dialogue_history = self.dialogue_history_string
         metadata.input = [
             f"Dialogue History:\n{dialogue_history}",
+            f"manager_agent:\n{self.manager_agent_string}",
             f"worker_agent(user_resolution):\n{metadata.output}",
         ]
         return metadata
@@ -266,6 +269,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
         dialogue_history = self.dialogue_history_string
         metadata.input = [
             f"Dialogue History:\n{dialogue_history}",
+            f"manager_agent:\n{self.manager_agent_string}",
             f"worker_agent(retrieval):\n{metadata.output}",
         ]
         return metadata
@@ -277,6 +281,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
         dialogue_history = self.dialogue_history_string
         metadata.input = [
             f"Dialogue History:\n{dialogue_history}",
+            f"manager_agent:\n{self.manager_agent_string}",
             f"worker_agent(post_delivery):\n{metadata.output[0]}",
             f"worker_agent(order_modification):\n{metadata.output[1]}",
             f"worker_agent(user_profile):\n{metadata.output[2]}",
@@ -313,6 +318,8 @@ class TaubenchRetailSystem(BaseAgentSystem):
         dialogue_history = "\n".join(dialogue_history_list)
         self.dialogue_history_string = dialogue_history
         metadata.input = f"Dialogue History:\n{self.dialogue_history_string}"
+        # print tool calls in the current turn
+        print(f"Tools called in this turn: {metadata.tool}")
 
         return metadata
 
@@ -329,6 +336,8 @@ print(taubench_retail_system.get_pipeline_description())
 
 total_record = dict()
 for dialogue_idx, dialogue_case in enumerate(TaubenchEnvironment.iterate_test_cases(domain="retail", task_split="test", random_seed=42, user_model_config=user_config, user_log_name=LOG_NAME)):
+    if str(dialogue_case.task_idx) != "109":
+        continue
     print(f"Dialogue: {dialogue_idx} {dialogue_case.task_idx}")
     taubench_retail_system.set_environment(environment=dialogue_case)
     result = taubench_retail_system.run(loop=True)
@@ -349,14 +358,8 @@ for dialogue_idx, dialogue_case in enumerate(TaubenchEnvironment.iterate_test_ca
         "reward": evaluation_result.reward,
         "reward_details": evaluation_result.reward_details,
     }
-    # if dialogue_idx == 99:
-    #     break
+    break
 
 
-evaluation_record = TaubenchEnvironment.evaluation_record
-evaluation_result = TaubenchEnvironment.evaluate_test_cases(domain="retail", task_split="test")
-evaluation_result.to_json(file_name=f"experiments/taubench_experiments/[Qwen3-32B]_[baseline]_[Manager-Worker]/retail/evaluation_result.json")
-with open(f"experiments/taubench_experiments/[Qwen3-32B]_[baseline]_[Manager-Worker]/retail/total_record.json", "w", encoding="utf-8") as f:
+with open(f"experiments/taubench_experiments/[Qwen3-32B]_[baseline]_[Manager-Worker]/retail/evaluate_copy.json", "w", encoding="utf-8") as f:
     json.dump(total_record, f, ensure_ascii=False, indent=2, default=convert_sets)
-with open(f"experiments/taubench_experiments/[Qwen3-32B]_[baseline]_[Manager-Worker]/retail/total_record.pkl", "wb") as f:
-    pickle.dump(evaluation_record, f)
