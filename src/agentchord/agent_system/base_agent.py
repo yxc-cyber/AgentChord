@@ -46,7 +46,7 @@ class BaseAgent(BaseAgentSystem):
         meta_data = self.execution(meta_data)
         return meta_data
     
-    def completion(self, messages: List[dict], tools: Optional[List[str]] = None) -> Message:
+    def completion(self, messages: List[dict], tools: Optional[List[str]] = None, **kwargs) -> Message:
         if tools is not None:
             tool_descriptions = list()
             for tool in tools:
@@ -56,12 +56,14 @@ class BaseAgent(BaseAgentSystem):
                     raise ValueError(f"Tool {tool} not found in tool descriptions.")
             output_message = self.model.completion(
                 messages=messages,
-                tools=tool_descriptions
+                tools=tool_descriptions,
+                **kwargs
             ).choices[0].message
         else:
             output_message = self.model.completion(
                 messages=messages,
-                tools=self.tool_descriptions
+                tools=self.tool_descriptions,
+                **kwargs
             ).choices[0].message
         return output_message
     
@@ -187,9 +189,20 @@ class BaseAgent(BaseAgentSystem):
         if remove_roles is not None:
             simplified_messages = [message for message in simplified_messages if message["role"] not in remove_roles]
         if remove_tools is not None:
+            remove_terminate = self.inner_environment.TERMINATE in remove_tools
+            normalized_messages = []
+            for message in simplified_messages:
+                if message["role"] == "tool":
+                    normalized_message = dict(message)
+                    if isinstance(normalized_message.get("content"), str):
+                        normalized_message["content"] = normalized_message["content"].replace(TOOL_HEADER, "").replace(TOOL_FOOTER, "")
+                    normalized_messages.append(normalized_message)
+                else:
+                    normalized_messages.append(message)
+
             simplified_messages = [
                 message
-                for message in simplified_messages
+                for message in normalized_messages
                 if not (
                     (message["role"] == "tool" and message.get("name") in remove_tools)
                     or (
@@ -199,8 +212,14 @@ class BaseAgent(BaseAgentSystem):
                             for tool_call in message.get("tool_calls", []) or []
                         )
                     )
+                    or (
+                        remove_terminate
+                        and message["role"] == "assistant"
+                        and not message.get("tool_calls")
+                    )
                 )
             ]
+            
         if keep_last_n is not None and simplified_messages:
             prompt_message = simplified_messages[0]
             remaining_messages = simplified_messages[1:]

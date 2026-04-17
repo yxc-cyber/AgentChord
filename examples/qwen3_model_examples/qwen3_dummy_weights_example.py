@@ -38,11 +38,27 @@ def sample_vram(samples, stop_event, interval_seconds: float = 0.1) -> None:
         return
 
     while not stop_event.is_set():
+        # Note: torch.cuda.memory_allocated() returns memory on current device (usually device 0).
+        # For multi-GPU setups with device_map="auto", memory is distributed across devices.
+        # We sum across all GPUs to get total usage.
+        total_allocated = 0
+        total_reserved = 0
+        gpu_allocated = []
+        gpu_reserved = []
+        for device_idx in range(torch.cuda.device_count()):
+            alloc = torch.cuda.memory_allocated(device_idx) / (1024 ** 2)
+            resv = torch.cuda.memory_reserved(device_idx) / (1024 ** 2)
+            total_allocated += alloc
+            total_reserved += resv
+            gpu_allocated.append(alloc)
+            gpu_reserved.append(resv)
         samples.append(
             (
                 time.perf_counter(),
-                torch.cuda.memory_allocated() / (1024 ** 2),
-                torch.cuda.memory_reserved() / (1024 ** 2),
+                total_allocated,
+                total_reserved,
+                gpu_allocated,
+                gpu_reserved,
             )
         )
         time.sleep(interval_seconds)
@@ -53,28 +69,38 @@ def report_vram(label: str) -> None:
         print(f"{label}: CUDA is not available, VRAM usage cannot be reported.")
         return
 
+    total_allocated = 0
+    total_reserved = 0
+    for device_idx in range(torch.cuda.device_count()):
+        total_allocated += torch.cuda.memory_allocated(device_idx) / (1024 ** 2)
+        total_reserved += torch.cuda.memory_reserved(device_idx) / (1024 ** 2)
+    
+    num_devices = torch.cuda.device_count()
     allocated = torch.cuda.memory_allocated() / (1024 ** 2)
     reserved = torch.cuda.memory_reserved() / (1024 ** 2)
     peak_allocated = torch.cuda.max_memory_allocated() / (1024 ** 2)
     peak_reserved = torch.cuda.max_memory_reserved() / (1024 ** 2)
     print(
-        f"{label}: allocated={allocated:.2f} MiB, reserved={reserved:.2f} MiB, "
+        f"{label} (current device only): allocated={allocated:.2f} MiB, reserved={reserved:.2f} MiB, "
         f"peak_allocated={peak_allocated:.2f} MiB, peak_reserved={peak_reserved:.2f} MiB"
+    )
+    print(
+        f"{label} (total across {num_devices} GPU(s)): allocated={total_allocated:.2f} MiB, reserved={total_reserved:.2f} MiB"
     )
 
 input_content = GBC(
     value=f"{INPUT_HEADER}Input 1: A football match will be held tomorrow.{INPUT_SEPARATOR}Input 2: Weather Condition: Isolated thunderstorms throughout the day.{INPUT_SEPARATOR}Input 3: A cat sat on a mat.{INPUT_FOOTER}",
     connections=[
-        "Input 1: A football match will be held tomorrow.",
-        "Input 2: Weather Condition: Isolated thunderstorms throughout the day.",
-        "Input 3: A cat sat on a mat.",
+        "Input 1: A football match will be held tomorrow, drawing the attention of sports enthusiasts from across the community. Fans are eagerly anticipating the event, as two competitive teams are set to face off in what promises to be an exciting and intense game. Preparations have already begun at the stadium, with organizers ensuring that everything runs smoothly, from seating arrangements to security measures. Supporters are expected to arrive early, dressed in their team colors and ready to cheer passionately. The match not only offers entertainment but also provides an opportunity for people to come together, celebrate teamwork, and enjoy the spirit of competition.",
+        "Input 2: The weather condition for the day is expected to feature isolated thunderstorms, creating a mix of sunshine and sudden bursts of rain. While the sky may remain partly clear at times, scattered storm clouds could develop unpredictably, bringing brief periods of heavy rainfall, lightning, and gusty winds. These thunderstorms are likely to occur in different areas rather than continuously, so some places may stay dry while others experience short but intense showers. People planning outdoor activities should stay alert to changing conditions, keep an eye on weather updates, and be prepared with appropriate gear such as umbrellas or raincoats. The isolated nature of the thunderstorms means that while they may disrupt plans in certain locations, they are not expected to affect the entire region uniformly. It's advisable to monitor local forecasts and be cautious when venturing outside, especially during the peak hours of thunderstorm activity.",
+        "Input 3: A cat sat quietly on a mat, its body curled comfortably as it rested in a patch of soft light. The mat, slightly worn but cozy, seemed to be the cat’s favorite spot, offering both warmth and a sense of security. Occasionally, the cat flicked its tail or perked up its ears, reacting to faint sounds in the surroundings, but it remained mostly still and content. Its calm posture and half-closed eyes suggested a peaceful moment, as if it were enjoying a brief escape from the bustle of the world around it.",
     ],
 )
 
 messages = [
     {
         "role": "system",
-        "content": "You are a helpful agent that can extract information about today's weather based on the input.",
+        "content": "You are a helpful agent that can extract information about today's weather based on the input. You should write a very very detailed explanation of how you extract the weather information, and then provide the final answer in a JSON format with the following structure: {\"weather_condition\": <extracted_weather_condition>}. If the weather condition cannot be extracted, set <extracted_weather_condition> to \"unknown\".",
     },
     {"role": "user", "content": input_content},
 ]
@@ -82,48 +108,117 @@ messages = [
 if torch.cuda.is_available():
     torch.cuda.reset_peak_memory_stats()
 
-vram_samples = []
-stop_event = threading.Event()
-vram_thread = threading.Thread(target=sample_vram, args=(vram_samples, stop_event), daemon=True)
-
 report_vram("Before completion")
-start_time = time.perf_counter()
+
+print("=" * 80)
+print("Running completion with dummy_weights=True")
+print("=" * 80)
+vram_samples_dummy = []
+stop_event = threading.Event()
+vram_thread = threading.Thread(target=sample_vram, args=(vram_samples_dummy, stop_event), daemon=True)
+
+start_time_dummy = time.perf_counter()
 vram_thread.start()
-response = model.completion(messages, dummy_weights=True)
+response_dummy = model.completion(messages, dummy_weights=True)
 stop_event.set()
 vram_thread.join()
-end_time = time.perf_counter()
-report_vram("After completion")
-print(response)
+end_time_dummy = time.perf_counter()
+report_vram("After dummy_weights=True completion")
+print(response_dummy)
 
-output = response.choices[0].message.gbc_content
-print(f"Is the output a GBC object? {isinstance(output, GBCBase)}")
-print(f"Class of the output: {output.__class__.__name__}")
-print(f"Output weights: {output.get_weights()}")
-print(f"All weights are 1.0? {all(weight == 1.0 for weight in output.get_weights())}")
+output_dummy = response_dummy.choices[0].message.gbc_content
+print(f"Is the output a GBC object? {isinstance(output_dummy, GBCBase)}")
+print(f"Output weights: {output_dummy.get_weights()}")
+print(f"All weights are 1.0? {all(weight == 1.0 for weight in output_dummy.get_weights())}")
 
-if torch.cuda.is_available() and vram_samples:
-    times = [sample[0] - start_time for sample in vram_samples]
-    allocated = [sample[1] for sample in vram_samples]
-    reserved = [sample[2] for sample in vram_samples]
+print("=" * 80)
+print("Running completion with dummy_weights=False")
+print("=" * 80)
+if torch.cuda.is_available():
+    torch.cuda.reset_peak_memory_stats()
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(times, allocated, label="Allocated VRAM (MiB)", linewidth=2)
-    plt.plot(times, reserved, label="Reserved VRAM (MiB)", linewidth=2)
-    plt.axvline(0.0, color="gray", linestyle="--", linewidth=1, label="Start")
-    plt.axvline(end_time - start_time, color="black", linestyle=":", linewidth=1, label="End")
-    plt.title("VRAM usage during Qwen3 dummy-weights completion")
-    plt.xlabel("Time since completion start (s)")
-    plt.ylabel("VRAM (MiB)")
-    plt.legend()
+report_vram("Before completion")
+vram_samples_normal = []
+stop_event = threading.Event()
+vram_thread = threading.Thread(target=sample_vram, args=(vram_samples_normal, stop_event), daemon=True)
+
+start_time_normal = time.perf_counter()
+vram_thread.start()
+response_normal = model.completion(messages, dummy_weights=False)
+stop_event.set()
+vram_thread.join()
+end_time_normal = time.perf_counter()
+report_vram("After dummy_weights=False completion")
+print(response_normal)
+
+output_normal = response_normal.choices[0].message.gbc_content
+print(f"Is the output a GBC object? {isinstance(output_normal, GBCBase)}")
+print(f"Output weights: {output_normal.get_weights()}")
+
+if torch.cuda.is_available() and (vram_samples_dummy or vram_samples_normal):
+    num_gpus = torch.cuda.device_count()
+    # Create subplots: 1 for total, 1 for each GPU
+    num_subplots = 1 + num_gpus
+    fig, axes = plt.subplots(num_subplots, 1, figsize=(12, 3 * num_subplots))
+    if num_subplots == 1:
+        axes = [axes]
+
+    # Plot total VRAM (first subplot)
+    if vram_samples_dummy:
+        times_dummy = [sample[0] - start_time_dummy for sample in vram_samples_dummy]
+        allocated_dummy = [sample[1] for sample in vram_samples_dummy]
+        reserved_dummy = [sample[2] for sample in vram_samples_dummy]
+        axes[0].plot(times_dummy, allocated_dummy, label="dummy_weights=True (Allocated)", linewidth=2, color="blue")
+        axes[0].plot(times_dummy, reserved_dummy, label="dummy_weights=True (Reserved)", linewidth=2, linestyle="--", color="blue")
+        axes[0].axvline(end_time_dummy - start_time_dummy, color="blue", linestyle=":", linewidth=1, alpha=0.5)
+
+    if vram_samples_normal:
+        times_normal = [sample[0] - start_time_normal for sample in vram_samples_normal]
+        allocated_normal = [sample[1] for sample in vram_samples_normal]
+        reserved_normal = [sample[2] for sample in vram_samples_normal]
+        axes[0].plot(times_normal, allocated_normal, label="dummy_weights=False (Allocated)", linewidth=2, color="red")
+        axes[0].plot(times_normal, reserved_normal, label="dummy_weights=False (Reserved)", linewidth=2, linestyle="--", color="red")
+        axes[0].axvline(end_time_normal - start_time_normal, color="red", linestyle=":", linewidth=1, alpha=0.5)
+
+    axes[0].set_title("Total VRAM across all GPUs")
+    axes[0].set_ylabel("VRAM (MiB)")
+    axes[0].legend(loc="upper left")
+    axes[0].grid(True, alpha=0.3)
+
+    # Plot per-GPU VRAM (subplots 1 to num_gpus)
+    for gpu_idx in range(num_gpus):
+        if vram_samples_dummy:
+            times_dummy = [sample[0] - start_time_dummy for sample in vram_samples_dummy]
+            gpu_allocated_dummy = [sample[3][gpu_idx] for sample in vram_samples_dummy]
+            gpu_reserved_dummy = [sample[4][gpu_idx] for sample in vram_samples_dummy]
+            axes[gpu_idx + 1].plot(times_dummy, gpu_allocated_dummy, label="dummy_weights=True (Allocated)", linewidth=2, color="blue")
+            axes[gpu_idx + 1].plot(times_dummy, gpu_reserved_dummy, label="dummy_weights=True (Reserved)", linewidth=2, linestyle="--", color="blue")
+            axes[gpu_idx + 1].axvline(end_time_dummy - start_time_dummy, color="blue", linestyle=":", linewidth=1, alpha=0.5)
+
+        if vram_samples_normal:
+            times_normal = [sample[0] - start_time_normal for sample in vram_samples_normal]
+            gpu_allocated_normal = [sample[3][gpu_idx] for sample in vram_samples_normal]
+            gpu_reserved_normal = [sample[4][gpu_idx] for sample in vram_samples_normal]
+            axes[gpu_idx + 1].plot(times_normal, gpu_allocated_normal, label="dummy_weights=False (Allocated)", linewidth=2, color="red")
+            axes[gpu_idx + 1].plot(times_normal, gpu_reserved_normal, label="dummy_weights=False (Reserved)", linewidth=2, linestyle="--", color="red")
+            axes[gpu_idx + 1].axvline(end_time_normal - start_time_normal, color="red", linestyle=":", linewidth=1, alpha=0.5)
+
+        gpu_name = torch.cuda.get_device_name(gpu_idx)
+        axes[gpu_idx + 1].set_title(f"GPU {gpu_idx}: {gpu_name}")
+        axes[gpu_idx + 1].set_ylabel("VRAM (MiB)")
+        axes[gpu_idx + 1].legend(loc="upper left")
+        axes[gpu_idx + 1].grid(True, alpha=0.3)
+
+    axes[-1].set_xlabel("Time since completion start (s)")
+    fig.suptitle("VRAM usage comparison: dummy_weights=True vs False", fontsize=14, fontweight="bold")
     plt.tight_layout()
     plt.savefig("examples/qwen3_model_examples/qwen3_dummy_weights_vram_curve.png", dpi=200)
     plt.close()
-    print("Saved VRAM curve to examples/qwen3_model_examples/qwen3_dummy_weights_vram_curve.png")
+    print("Saved VRAM comparison plot to examples/qwen3_model_examples/qwen3_dummy_weights_vram_curve.png")
 elif not torch.cuda.is_available():
     print("VRAM curve was not generated because CUDA is not available.")
 
-visualize_gbc_tree(
-    response.choices[0].message.gbc_content,
-    save_path="examples/qwen3_model_examples/qwen3_dummy_weights_example.png",
-)
+if torch.cuda.is_available():
+    print(f"Total GPU count: {torch.cuda.device_count()}")
+    for device_idx in range(torch.cuda.device_count()):
+        print(f"  GPU {device_idx}: {torch.cuda.get_device_name(device_idx)}")

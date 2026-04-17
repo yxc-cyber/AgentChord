@@ -34,6 +34,7 @@ class GBCAgent(BaseAgent):
             tools: Optional[List[str]] = None,
             maximum_loops: int = 5,
             log_name: str = "",
+            dummy_weights: bool = False
         ):
         super().__init__(
             system_name=system_name,
@@ -44,6 +45,7 @@ class GBCAgent(BaseAgent):
             maximum_loops=maximum_loops,
             log_name=log_name,
         )
+        self.dummy_weights = dummy_weights
     
     def execution(self, meta_data: BaseMetaData) -> BaseMetaData:
         self.logger.debug(f"Receiving {meta_data}")
@@ -110,9 +112,9 @@ class GBCAgent(BaseAgent):
         while not terminate and loop_counter < self.maximum_loops:
             self.logger.debug(f"Message history: {self.messages}")
             if loop_counter == self.maximum_loops - 1:
-                output_message = self.completion(self.messages, [self.inner_environment.TERMINATE])
+                output_message = self.completion(self.messages, [self.inner_environment.TERMINATE], dummy_weights=self.dummy_weights)
             else:
-                output_message = self.completion(self.messages)
+                output_message = self.completion(self.messages, dummy_weights=self.dummy_weights)
             if output_message.tool_calls:
                 output_message.tool_calls = output_message.tool_calls[:1]  # Limit to the first tool call for simplicity
             self.logger.debug(f"New message: {output_message.json()}")
