@@ -1,7 +1,8 @@
-import torch
-import matplotlib.pyplot as plt
 import threading
 import time
+
+import matplotlib.pyplot as plt
+import torch
 from transformers import BitsAndBytesConfig
 
 from agentchord import GBC
