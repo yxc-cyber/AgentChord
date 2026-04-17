@@ -287,7 +287,8 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
         self,
         messages: List[Union[dict, Message]],
         tools: Optional[list] = None,
-        tool_choice: Optional[str] = None
+        tool_choice: Optional[str] = None,
+        dummy_weights: bool = False,
     ) -> Union[ModelResponse, CustomStreamWrapper]:
         """
         Generate a completion for the given messages using the Llama model.
@@ -311,20 +312,28 @@ class BaseLocalModel(BaseModel, metaclass=SingletonMeta):
         # Input_blocks is a list of lists, where each inner list contains tuples of (block_start[included], block_end[included])
 
         # Generate the model's response
-        outputs = self.model.generate(**encoding, **self.config.get_local_configuration(include_model=False), gradient_blocks=input_blocks)
-        sequences = outputs.sequences  # (batch_size, total_sequence_length)
-        gradients = outputs.gradients
-        # If FINEGRAINED: (batch_size, output_sequence_length, input_sequence_length, hidden_size)
-        # If SUM_SQUARES: (batch_size, input_sequence_length, hidden_size)
-        # If PRODUCT_PROBS: (batch_size, input_sequence_length, hidden_size)
-        embedings = outputs.embeds  # (batch_size, input_sequence_length, hidden_size)
-
-        # Get connection weights based on the gradients and input blocks
-        connection_weights = self._get_connection_weights(
-            gradients=gradients,
-            input_blocks=input_blocks,
-            embedings=embedings,
+        outputs = self.model.generate(
+            **encoding,
+            **self.config.get_local_configuration(include_model=False),
+            gradient_blocks=input_blocks,
+            dummy_weights=dummy_weights,
         )
+        sequences = outputs.sequences  # (batch_size, total_sequence_length)
+        if dummy_weights:
+            connection_weights = [[1.0 for _ in local_blocks] for local_blocks in input_blocks]
+        else:
+            gradients = outputs.gradients
+            # If FINEGRAINED: (batch_size, output_sequence_length, input_sequence_length, hidden_size)
+            # If SUM_SQUARES: (batch_size, input_sequence_length, hidden_size)
+            # If PRODUCT_PROBS: (batch_size, input_sequence_length, hidden_size)
+            embedings = outputs.embeds  # (batch_size, input_sequence_length, hidden_size)
+
+            # Get connection weights based on the gradients and input blocks
+            connection_weights = self._get_connection_weights(
+                gradients=gradients,
+                input_blocks=input_blocks,
+                embedings=embedings,
+            )
 
         # Get the outputs from the model
         outputs = self._get_outputs(encoding, sequences)

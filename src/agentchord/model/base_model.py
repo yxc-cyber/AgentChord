@@ -13,7 +13,8 @@ class BaseModel:
             self,
             messages: List[Union[dict, Message]],
             tools: Optional[list] = None,
-            tool_choice: Optional[str] = None
+            tool_choice: Optional[str] = None,
+            dummy_weights: bool = False,
         ) -> Union[ModelResponse, CustomStreamWrapper]:
         if self.config.enable_thinking is not None and self.config.enable_thinking == False:
             messages_no_think = list()

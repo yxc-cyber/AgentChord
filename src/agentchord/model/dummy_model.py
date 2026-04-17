@@ -17,7 +17,13 @@ class DummyModel(BaseModel):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         
-    def completion(self, messages: List[Union[dict, Message]], tools: Optional[list] = None, tool_choice: Optional[str] = None) -> Union[ModelResponse, CustomStreamWrapper]:
+    def completion(
+        self,
+        messages: List[Union[dict, Message]],
+        tools: Optional[list] = None,
+        tool_choice: Optional[str] = None,
+        dummy_weights: bool = False,
+    ) -> Union[ModelResponse, CustomStreamWrapper]:
         print(f"Messages: \n{messages}")
         content = input("Content: \n")
         if not content:

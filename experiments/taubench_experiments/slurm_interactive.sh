@@ -1,4 +1,4 @@
 srun --account=bghs-delta-gpu --partition=gpuA40x4-interactive \
-  --nodes=1 --gpus-per-node=4 --tasks=1 \
-  --tasks-per-node=16 --cpus-per-task=1 --mem=64g \
-  --pty bash
+  --nodes=1 --gpus-per-node=4 \
+  --tasks-per-node=4 --cpus-per-task=4 --mem=64g \
+  --time=01:00:00 --pty bash
