@@ -14,7 +14,7 @@ from agentchord import (
 )
 
 # evaluation configuration
-CLIENT_MODEL = "openai/Qwen3-32B-FP8"
+CLIENT_MODEL = "openai/Qwen3-32B"
 USER_CLIENT_MODEL = "openai/gpt-4o-mini"
 LOG_NAME = "taubench_evaluation_example.log"
 

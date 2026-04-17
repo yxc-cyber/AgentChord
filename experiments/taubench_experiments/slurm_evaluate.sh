@@ -45,7 +45,7 @@ vllm serve $SCRATCH/models/Qwen3-32B \
         --served-model-name Qwen3-32B \
         --enable-auto-tool-choice \
         --tool-call-parser hermes \
-        --chat-template src/agentchord/model/chat_templates/tool_chat_template_qwen3_json.jinja \
+        --chat-template src/agentchord/model/chat_templates/tool_chat_template_qwen3_json_nothink.jinja \
         --tensor-parallel-size 4 \
         --quantization fp8 \
         --max-model-len 16384 \
