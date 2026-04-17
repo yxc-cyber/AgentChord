@@ -24,22 +24,22 @@ from agentchord.optimizer import OPROOptimizer
 from agentchord.utils import WandBConfig
 
 # training configuration
-WORKING_DIR = "experiments/multiwoz_24_experiments/new_experiments/[Qwen3-32B]_[product_probs]_[mean_l1_norm]/training"
-LOG_NAME = "[MultiWOZ]_[Qwen3-32B]_[product_probs]_[mean_l1_norm].log"
-OPTIMIZER_LOG_NAME = "[MultiWOZ]_[Qwen3-32B]_[Optimizer]_[product_probs]_[mean_l1_norm].log"
+WORKING_DIR = "experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[mean_l1_norm]/training"
+LOG_NAME = "[TauBench]_[Qwen3-32B]_[product_probs]_[mean_l1_norm].log"
+OPTIMIZER_LOG_NAME = "[TauBench]_[Qwen3-32B]_[Optimizer]_[product_probs]_[mean_l1_norm].log"
 GRADIENT_STRATEGY = "product_probs"
 CONNECTION_STRATEGY = "mean_l1_norm"
 MODEL = "Qwen3-32B"
 USER_CLIENT_MODEL = "openai/gpt-4o-mini"
-UPDATE_STEP = 3
-TOTAL_TRAINING_SAMPLES = 30
+UPDATE_STEP = 1
+TOTAL_TRAINING_SAMPLES = 10
 # training resume configuration
 RESUME_DIR = None
-# RESUME_DIR = "experiments/multiwoz_24_experiments/[Llama3.1-8B-Instruct]_[product_probs]_[mean_l1_norm]/training/checkpoint-3"
-SKIP_SAMPLES = 0
+RESUME_DIR = "experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[mean_l1_norm]/training/checkpoint-1"
+SKIP_SAMPLES = 1
 # model loading configuration
 LOCAL_MODEL = "Qwen3Model"
-MODEL_PATH = "/work/hdd/bghs/xyang7/models/Qwen3-32B"
+MODEL_PATH = "/shared/storage-01/users/xy61/models/Qwen3-32B"
 CHAT_TEMPLATE_PATH = "src/agentchord/model/chat_templates/tool_chat_template_qwen3_json.jinja"
 
 prompt_manager = """
@@ -173,8 +173,9 @@ class TaubenchRetailSystem(BaseAgentSystem):
             prompt=prompt_manager,
             tools=[],
             model_config=config,
-            maximum_loops=5,
-            log_name=log_name
+            maximum_loops=4,
+            log_name=log_name,
+            dummy_weights=True
         )
         WorkerAgent_USER_RESOLUTION = GBCAgent(
             system_name="worker_agent(user_resolution)",
@@ -182,7 +183,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
             prompt=prompt_user_resolution_agent,
             tools=["find_user_id_by_email", "find_user_id_by_name_zip"],
             model_config=config,
-            maximum_loops=5,
+            maximum_loops=4,
             log_name=log_name
         )
         WorkerAgent_RETRIEVAL = GBCAgent(
@@ -191,7 +192,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
             prompt=prompt_retrieval_agent,
             tools=["get_user_details", "get_order_details", "get_product_details", "list_all_product_types"],
             model_config=config,
-            maximum_loops=5,
+            maximum_loops=4,
             log_name=log_name
         )
         WorkerAgent_POST_DELIVERY = GBCAgent(
@@ -200,7 +201,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
             prompt=prompt_post_delivery_agent,
             tools=["return_delivered_order_items", "exchange_delivered_order_items"],
             model_config=config,
-            maximum_loops=5,
+            maximum_loops=4,
             log_name=log_name
         )
         WorkerAgent_ORDER_MODIFICATION = GBCAgent(
@@ -209,7 +210,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
             prompt=prompt_order_modification_agent,
             tools=["modify_pending_order_address", "modify_pending_order_items", "modify_pending_order_payment", "cancel_pending_order"],
             model_config=config,
-            maximum_loops=5,
+            maximum_loops=4,
             log_name=log_name
         )
         WorkerAgent_USER_PROFILE = GBCAgent(
@@ -218,7 +219,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
             prompt=prompt_user_profile_agent,
             tools=["modify_user_address"],
             model_config=config,
-            maximum_loops=5,
+            maximum_loops=4,
             log_name=log_name
         )
         WorkerAgents = ParallelBlock(
@@ -237,7 +238,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
             prompt=prompt_responder_agent,
             tools=[],
             model_config=config,
-            maximum_loops=5,
+            maximum_loops=4,
             log_name=log_name
         )
         self.add_subsystem(ManagerAgent)
@@ -331,12 +332,12 @@ class TaubenchRetailSystem(BaseAgentSystem):
         print(f"User Response: {metadata.user_responses[-1]}")
 
         # Initialize all the agents for the next turn
-        self.subsystems["manager_agent"].messages_simplification(remove_roles=["user"], remove_tools=["terminate"], keep_last_n=8)
-        self.subsystems["worker_agent(user_resolution)"].messages_simplification(remove_roles=["user"], remove_tools=["terminate"], keep_last_n=8)
-        self.subsystems["worker_agent(retrieval)"].messages_simplification(remove_roles=["user"], remove_tools=["terminate"], keep_last_n=8)
+        self.subsystems["manager_agent"].messages_simplification(remove_roles=["user"], remove_tools=["terminate"], keep_last_n=6)
+        self.subsystems["worker_agent(user_resolution)"].messages_simplification(remove_roles=["user"], remove_tools=["terminate"], keep_last_n=6)
+        self.subsystems["worker_agent(retrieval)"].messages_simplification(remove_roles=["user"], remove_tools=["terminate"], keep_last_n=6)
         for worker_agent in self.subsystems["worker_agents"].subsystems.values():
-            worker_agent.messages_simplification(remove_roles=["user"], remove_tools=["terminate"], keep_last_n=8)
-        self.subsystems["responder_agent"].messages_simplification(remove_roles=["user"], remove_tools=["terminate"], keep_last_n=8)
+            worker_agent.messages_simplification(remove_roles=["user"], remove_tools=["terminate"], keep_last_n=6)
+        self.subsystems["responder_agent"].messages_simplification(remove_roles=["user"], remove_tools=["terminate"], keep_last_n=6)
 
         dialogue_history_list = list()
         system_responses_num = len(metadata.responses)
@@ -379,6 +380,7 @@ optimizer = OPROOptimizer(
 loss_fn = TauBenchLoss()
 optimization_steps = 0
 dialogue_idx_pool = list()
+missed_cases = 0
 
 
 if not os.path.exists(os.path.join(WORKING_DIR, "checkpoint-0")):
@@ -395,19 +397,24 @@ for dialogue_idx, dialogue_case in enumerate(TaubenchEnvironment.iterate_test_ca
         continue
     dialogue_idx_pool.append(dialogue_case.task_idx)
     taubench_retail_system.set_environment(environment=dialogue_case)
-    result = taubench_retail_system.run(loop=True)
+    try:
+        result = taubench_retail_system.run(loop=True)
+    except Exception as e:
+        print(f"Error occurred during the execution of dialogue case {dialogue_case.task_idx}: {e}")
+        missed_cases += 1
+        continue
     evaluation_result = dialogue_case.evaluate(result)
     loss = loss_fn.compute_loss(evaluation_result=evaluation_result)
     loss.backward(bandwidth=1)
-    if (dialogue_idx + 1) % UPDATE_STEP == 0:
-        evaluation_result = TaubenchEnvironment.evaluate_test_cases(domain="retail", task_split="train", dialogue_indices=dialogue_idx_pool)
+    if (dialogue_idx + 1 - missed_cases) % UPDATE_STEP == 0:
+        evaluation_result = TaubenchEnvironment.evaluate_test_cases(domain="retail", task_split="train", task_indices=dialogue_idx_pool)
         optimizer.step(
             performance=f"Reward: {evaluation_result.mean_reward}",
             performance_dict={
                 "reward": evaluation_result.mean_reward
             }
         )
-        optimization_steps = (dialogue_idx + 1) // UPDATE_STEP
+        optimization_steps = (dialogue_idx + 1 - missed_cases) // UPDATE_STEP
 
         if not os.path.exists(os.path.join(WORKING_DIR, f"checkpoint-{optimization_steps}")):
             os.makedirs(os.path.join(WORKING_DIR, f"checkpoint-{optimization_steps}"))
@@ -415,7 +422,7 @@ for dialogue_idx, dialogue_case in enumerate(TaubenchEnvironment.iterate_test_ca
         optimizer.save_optimizer_state(file_path=os.path.join(WORKING_DIR, f"checkpoint-{optimization_steps}/optimizer_state.json"))
         dialogue_idx_pool = list()
     
-    if dialogue_idx >= TOTAL_TRAINING_SAMPLES - 1:
+    if dialogue_idx - missed_cases >= TOTAL_TRAINING_SAMPLES - 1:
         break
 
 optimizer.finish_wandb()

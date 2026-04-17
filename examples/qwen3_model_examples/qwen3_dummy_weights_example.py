@@ -91,16 +91,16 @@ def report_vram(label: str) -> None:
 input_content = GBC(
     value=f"{INPUT_HEADER}Input 1: A football match will be held tomorrow.{INPUT_SEPARATOR}Input 2: Weather Condition: Isolated thunderstorms throughout the day.{INPUT_SEPARATOR}Input 3: A cat sat on a mat.{INPUT_FOOTER}",
     connections=[
-        "Input 1: A football match will be held tomorrow.",
-        "Input 2: Weather Condition: Isolated thunderstorms throughout the day.",
-        "Input 3: A cat sat on a mat.",
+        "Input 1: A football match will be held tomorrow, drawing the attention of sports enthusiasts from across the community. Fans are eagerly anticipating the event, as two competitive teams are set to face off in what promises to be an exciting and intense game. Preparations have already begun at the stadium, with organizers ensuring that everything runs smoothly, from seating arrangements to security measures. Supporters are expected to arrive early, dressed in their team colors and ready to cheer passionately. The match not only offers entertainment but also provides an opportunity for people to come together, celebrate teamwork, and enjoy the spirit of competition.",
+        "Input 2: The weather condition for the day is expected to feature isolated thunderstorms, creating a mix of sunshine and sudden bursts of rain. While the sky may remain partly clear at times, scattered storm clouds could develop unpredictably, bringing brief periods of heavy rainfall, lightning, and gusty winds. These thunderstorms are likely to occur in different areas rather than continuously, so some places may stay dry while others experience short but intense showers. People planning outdoor activities should stay alert to changing conditions, keep an eye on weather updates, and be prepared with appropriate gear such as umbrellas or raincoats. The isolated nature of the thunderstorms means that while they may disrupt plans in certain locations, they are not expected to affect the entire region uniformly. It's advisable to monitor local forecasts and be cautious when venturing outside, especially during the peak hours of thunderstorm activity.",
+        "Input 3: A cat sat quietly on a mat, its body curled comfortably as it rested in a patch of soft light. The mat, slightly worn but cozy, seemed to be the cat’s favorite spot, offering both warmth and a sense of security. Occasionally, the cat flicked its tail or perked up its ears, reacting to faint sounds in the surroundings, but it remained mostly still and content. Its calm posture and half-closed eyes suggested a peaceful moment, as if it were enjoying a brief escape from the bustle of the world around it.",
     ],
 )
 
 messages = [
     {
         "role": "system",
-        "content": "You are a helpful agent that can extract information about today's weather based on the input.",
+        "content": "You are a helpful agent that can extract information about today's weather based on the input. You should write a very very detailed explanation of how you extract the weather information, and then provide the final answer in a JSON format with the following structure: {\"weather_condition\": <extracted_weather_condition>}. If the weather condition cannot be extracted, set <extracted_weather_condition> to \"unknown\".",
     },
     {"role": "user", "content": input_content},
 ]
