@@ -6,7 +6,7 @@ import torch
 from transformers import BitsAndBytesConfig
 
 from agentchord import GBC
-from agentchord.gbc_object import GBCBase, visualize_gbc_tree
+from agentchord.gbc_object import GBCBase
 from agentchord.model import ModelConfig, ModelFactory
 from agentchord.utils import INPUT_FOOTER, INPUT_HEADER, INPUT_SEPARATOR
 
@@ -18,14 +18,14 @@ bnb_config = BitsAndBytesConfig(
 )
 
 config = ModelConfig(
-    local_model="Qwen3Model",
-    model_path="/shared/storage-01/users/xy61/models/Qwen3-32B",
+    local_model="Gemma3Model",
+    model_path="/work/hdd/bghs/xyang7/models/gemma-3-27b-it",
     quantization_config=bnb_config,
     max_new_tokens=1024,
     do_sample=False,
     gradient_strategy="product_probs",
     connection_strategy="max_l1_norm",
-    chat_template_path="src/agentchord/model/chat_templates/tool_chat_template_qwen3_json.jinja",
+    chat_template_path="src/agentchord/model/chat_templates/tool_chat_template_gemma3_json.jinja",
     enable_thinking=False,
 )
 
@@ -38,9 +38,6 @@ def sample_vram(samples, stop_event, interval_seconds: float = 0.1) -> None:
         return
 
     while not stop_event.is_set():
-        # Note: torch.cuda.memory_allocated() returns memory on current device (usually device 0).
-        # For multi-GPU setups with device_map="auto", memory is distributed across devices.
-        # We sum across all GPUs to get total usage.
         total_allocated = 0
         total_reserved = 0
         gpu_allocated = []
@@ -52,15 +49,7 @@ def sample_vram(samples, stop_event, interval_seconds: float = 0.1) -> None:
             total_reserved += resv
             gpu_allocated.append(alloc)
             gpu_reserved.append(resv)
-        samples.append(
-            (
-                time.perf_counter(),
-                total_allocated,
-                total_reserved,
-                gpu_allocated,
-                gpu_reserved,
-            )
-        )
+        samples.append((time.perf_counter(), total_allocated, total_reserved, gpu_allocated, gpu_reserved))
         time.sleep(interval_seconds)
 
 
@@ -74,7 +63,7 @@ def report_vram(label: str) -> None:
     for device_idx in range(torch.cuda.device_count()):
         total_allocated += torch.cuda.memory_allocated(device_idx) / (1024 ** 2)
         total_reserved += torch.cuda.memory_reserved(device_idx) / (1024 ** 2)
-    
+
     num_devices = torch.cuda.device_count()
     allocated = torch.cuda.memory_allocated() / (1024 ** 2)
     reserved = torch.cuda.memory_reserved() / (1024 ** 2)
@@ -87,6 +76,7 @@ def report_vram(label: str) -> None:
     print(
         f"{label} (total across {num_devices} GPU(s)): allocated={total_allocated:.2f} MiB, reserved={total_reserved:.2f} MiB"
     )
+
 
 input_content = GBC(
     value=f"{INPUT_HEADER}Input 1: A football match will be held tomorrow.{INPUT_SEPARATOR}Input 2: Weather Condition: Isolated thunderstorms throughout the day.{INPUT_SEPARATOR}Input 3: A cat sat on a mat.{INPUT_FOOTER}",
@@ -157,13 +147,11 @@ print(f"Output weights: {output_normal.get_weights()}")
 
 if torch.cuda.is_available() and (vram_samples_dummy or vram_samples_normal):
     num_gpus = torch.cuda.device_count()
-    # Create subplots: 1 for total, 1 for each GPU
     num_subplots = 1 + num_gpus
     fig, axes = plt.subplots(num_subplots, 1, figsize=(12, 3 * num_subplots))
     if num_subplots == 1:
         axes = [axes]
 
-    # Plot total VRAM (first subplot)
     if vram_samples_dummy:
         times_dummy = [sample[0] - start_time_dummy for sample in vram_samples_dummy]
         allocated_dummy = [sample[1] for sample in vram_samples_dummy]
@@ -185,7 +173,6 @@ if torch.cuda.is_available() and (vram_samples_dummy or vram_samples_normal):
     axes[0].legend(loc="upper left")
     axes[0].grid(True, alpha=0.3)
 
-    # Plot per-GPU VRAM (subplots 1 to num_gpus)
     for gpu_idx in range(num_gpus):
         if vram_samples_dummy:
             times_dummy = [sample[0] - start_time_dummy for sample in vram_samples_dummy]
@@ -212,9 +199,9 @@ if torch.cuda.is_available() and (vram_samples_dummy or vram_samples_normal):
     axes[-1].set_xlabel("Time since completion start (s)")
     fig.suptitle("VRAM usage comparison: dummy_weights=True vs False", fontsize=14, fontweight="bold")
     plt.tight_layout()
-    plt.savefig("examples/qwen3_model_examples/qwen3_dummy_weights_vram_curve.png", dpi=200)
+    plt.savefig("examples/gemma3_model_examples/gemma3_dummy_weights_vram_curve.png", dpi=200)
     plt.close()
-    print("Saved VRAM comparison plot to examples/qwen3_model_examples/qwen3_dummy_weights_vram_curve.png")
+    print("Saved VRAM comparison plot to examples/gemma3_model_examples/gemma3_dummy_weights_vram_curve.png")
 elif not torch.cuda.is_available():
     print("VRAM curve was not generated because CUDA is not available.")
 

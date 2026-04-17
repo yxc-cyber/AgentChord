@@ -228,8 +228,9 @@ class Gemma3ForCausalLM_GBC(Gemma3ForCausalLM):
             inputs_embeds = inputs_embeds if inputs_embeds is not None else self.model.embed_tokens(input_ids)
         # gradient_blocks may be passed via kwargs (from generate)
         gradient_blocks = kwargs.get("gradient_blocks", None)
+        dummy_weights = kwargs.get("dummy_weights", False)
 
-        if self.initial_inputs_embeds is None:
+        if self.initial_inputs_embeds is None and not dummy_weights:
             # We will build per-batch per-token leaf tensors so we can selectively require_grad only for requested tokens
             initial_inputs_embeds = list()
             batch_size = inputs_embeds.shape[0]
@@ -321,6 +322,7 @@ class Gemma3ForCausalLM_GBC(Gemma3ForCausalLM):
     ) -> Union[GenerateOutput, torch.LongTensor]:
         # Extract gradient blocks
         gradient_blocks = kwargs.pop("gradient_blocks", None)
+        dummy_weights = kwargs.pop("dummy_weights", False)
 
         # 0. If requested, load an arbitrary generation recipe from the Hub and run it instead
         trust_remote_code = kwargs.pop("trust_remote_code", None)
@@ -368,6 +370,7 @@ class Gemma3ForCausalLM_GBC(Gemma3ForCausalLM):
         self._validate_model_kwargs(model_kwargs.copy())
         self._validate_generation_mode(generation_mode, generation_config, generation_mode_kwargs)
         model_kwargs["gradient_blocks"] = gradient_blocks
+        model_kwargs["dummy_weights"] = dummy_weights
 
         # Deprecation-related step: set Hub repo for deprecated strategies.
         # NOTE: This must come after initializing generation_config, since we need it to determine if this is a deprecated mode.
@@ -643,45 +646,51 @@ class Gemma3ForCausalLM_GBC(Gemma3ForCausalLM):
         ):
             result.past_key_values = result.past_key_values.to_legacy_cache()
 
-        # Compute the gradient of the logits with respect to the inputs_embeds
-        input_ids = result.sequences  # (batch_size, input_tail_length + output_sequence_length)
-        logits = torch.stack(result.logits, dim=1)  # (batch_size, output_sequence_length, vocab_size)
-        log_probs = F.log_softmax(logits, dim=-1)  # (batch_size, output_sequence_length, vocab_size)
-        picked_input_ids = input_ids[:, -logits.shape[1]:]  # (batch_size, output_sequence_length)
-        picked_logits = logits.gather(2, picked_input_ids.unsqueeze(-1)).squeeze(-1)  # (batch_size, output_sequence_length)
-        picked_log_probs = log_probs.gather(2, picked_input_ids.unsqueeze(-1)).squeeze(-1)  # (batch_size, output_sequence_length)
-        # Calculate gradients. Pass the same gradient_blocks that were provided to generate (if any)
-        gradients = self.calculate_gradient(
-            self.initial_inputs_embeds,
-            picked_logits,
-            picked_log_probs,
-            gradient_blocks=model_kwargs.get("gradient_blocks", None),
-        )
-        result.gradients = gradients
-        # If FINEGRAINED: (batch_size, output_sequence_length, input_tail_length, hidden_size)
-        # If SUM_SQUARES: (batch_size, input_tail_length, hidden_size)
-        # If PRODUCT_PROBS: (batch_size, input_tail_length, hidden_size)
-        # Reconstruct embeds from per-token lists into a tensor for reference
-        result.embeds = torch.stack([torch.stack(per_token_list, dim=0) for per_token_list in self.initial_inputs_embeds], dim=0)
-        # (batch_size, input_tail_length, hidden_size)
-
-        # Adjust the values so that they correspond to the original input sequence length
+        # Keep returned sequence aligned with original input length when tail-window prefill is used.
         if earliest_idx is not None and isinstance(earliest_idx, int) and earliest_idx > 0:
-            # We prefixed up to earliest_idx under no_grad, so we need to pad the gradients and embeds
-            batch_size = result.gradients.shape[0]
-            hidden_size = result.embeds.shape[2]
-            if self.gradient_strategy == FINEGRAINED:
-                out_len = result.gradients.shape[1]
-                prefix_pad = torch.zeros((batch_size, out_len, earliest_idx, hidden_size), device=result.gradients.device, dtype=result.gradients.dtype)
-                result.gradients = torch.cat([prefix_pad, result.gradients], dim=2)
-            else:
-                prefix_pad = torch.zeros((batch_size, earliest_idx, hidden_size), device=result.gradients.device, dtype=result.gradients.dtype)
-                result.gradients = torch.cat([prefix_pad, result.gradients], dim=1)
-            # Embeds padding
-            embed_prefix_pad = torch.zeros((batch_size, earliest_idx, hidden_size), device=result.embeds.device, dtype=result.embeds.dtype)
-            result.embeds = torch.cat([embed_prefix_pad, result.embeds], dim=1)
-            # Amend sequence using prefix_ids
             result.sequences = torch.cat([prefix_ids, result.sequences], dim=1)
+
+        # Compute the gradient of the logits with respect to the inputs_embeds unless dummy weights are requested.
+        if dummy_weights:
+            result.gradients = None
+            result.embeds = None
+        else:
+            input_ids = result.sequences  # (batch_size, input_tail_length + output_sequence_length)
+            logits = torch.stack(result.logits, dim=1)  # (batch_size, output_sequence_length, vocab_size)
+            log_probs = F.log_softmax(logits, dim=-1)  # (batch_size, output_sequence_length, vocab_size)
+            picked_input_ids = input_ids[:, -logits.shape[1]:]  # (batch_size, output_sequence_length)
+            picked_logits = logits.gather(2, picked_input_ids.unsqueeze(-1)).squeeze(-1)  # (batch_size, output_sequence_length)
+            picked_log_probs = log_probs.gather(2, picked_input_ids.unsqueeze(-1)).squeeze(-1)  # (batch_size, output_sequence_length)
+            # Calculate gradients. Pass the same gradient_blocks that were provided to generate (if any)
+            gradients = self.calculate_gradient(
+                self.initial_inputs_embeds,
+                picked_logits,
+                picked_log_probs,
+                gradient_blocks=model_kwargs.get("gradient_blocks", None),
+            )
+            result.gradients = gradients
+            # If FINEGRAINED: (batch_size, output_sequence_length, input_tail_length, hidden_size)
+            # If SUM_SQUARES: (batch_size, input_tail_length, hidden_size)
+            # If PRODUCT_PROBS: (batch_size, input_tail_length, hidden_size)
+            # Reconstruct embeds from per-token lists into a tensor for reference
+            result.embeds = torch.stack([torch.stack(per_token_list, dim=0) for per_token_list in self.initial_inputs_embeds], dim=0)
+            # (batch_size, input_tail_length, hidden_size)
+
+            # Adjust the values so that they correspond to the original input sequence length
+            if earliest_idx is not None and isinstance(earliest_idx, int) and earliest_idx > 0:
+                # We prefixed up to earliest_idx under no_grad, so we need to pad the gradients and embeds
+                batch_size = result.gradients.shape[0]
+                hidden_size = result.embeds.shape[2]
+                if self.gradient_strategy == FINEGRAINED:
+                    out_len = result.gradients.shape[1]
+                    prefix_pad = torch.zeros((batch_size, out_len, earliest_idx, hidden_size), device=result.gradients.device, dtype=result.gradients.dtype)
+                    result.gradients = torch.cat([prefix_pad, result.gradients], dim=2)
+                else:
+                    prefix_pad = torch.zeros((batch_size, earliest_idx, hidden_size), device=result.gradients.device, dtype=result.gradients.dtype)
+                    result.gradients = torch.cat([prefix_pad, result.gradients], dim=1)
+                # Embeds padding
+                embed_prefix_pad = torch.zeros((batch_size, earliest_idx, hidden_size), device=result.embeds.device, dtype=result.embeds.dtype)
+                result.embeds = torch.cat([embed_prefix_pad, result.embeds], dim=1)
 
         # The final sizes are:
         # 1. gradients:
