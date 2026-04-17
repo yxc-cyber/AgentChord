@@ -14,7 +14,7 @@ from agentchord import (
 )
 
 # evaluation configuration
-CLIENT_MODEL = "openai/Qwen3-32B"
+CLIENT_MODEL = "openai/Llama3.3-70B-Instruct"
 USER_CLIENT_MODEL = "openai/gpt-4o-mini"
 LOG_NAME = "taubench_evaluation_example.log"
 
@@ -355,8 +355,8 @@ for dialogue_idx, dialogue_case in enumerate(TaubenchEnvironment.iterate_test_ca
 
 evaluation_record = TaubenchEnvironment.evaluation_record
 evaluation_result = TaubenchEnvironment.evaluate_test_cases(domain="retail", task_split="test")
-evaluation_result.to_json(file_name=f"experiments/taubench_experiments/[Qwen3-32B]_[baseline]_[Manager-Worker]/retail/evaluation_result.json")
-with open(f"experiments/taubench_experiments/[Qwen3-32B]_[baseline]_[Manager-Worker]/retail/total_record.json", "w", encoding="utf-8") as f:
+evaluation_result.to_json(file_name=f"experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[baseline]_[Manager-Worker]/retail/evaluation_result.json")
+with open(f"experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[baseline]_[Manager-Worker]/retail/total_record.json", "w", encoding="utf-8") as f:
     json.dump(total_record, f, ensure_ascii=False, indent=2, default=convert_sets)
-with open(f"experiments/taubench_experiments/[Qwen3-32B]_[baseline]_[Manager-Worker]/retail/total_record.pkl", "wb") as f:
+with open(f"experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[baseline]_[Manager-Worker]/retail/total_record.pkl", "wb") as f:
     pickle.dump(evaluation_record, f)
