@@ -12,7 +12,7 @@
 #SBATCH --account=bghs-delta-gpu
 #SBATCH --exclusive  # dedicated node for this job
 #SBATCH --no-requeue
-#SBATCH -t 8:00:00
+#SBATCH -t 16:00:00
 #SBATCH -e slurm-%j.err
 #SBATCH -o slurm-%j.out
 
@@ -69,11 +69,11 @@ done
 
 echo "Starting evaluation for experiments..."
 
-# Evaluate with baseline
-echo "=========================================="
-echo "Evaluation: baseline"
-echo "=========================================="
-uv run python experiments/taubench_experiments/[Qwen3-32B]_[baseline]_[Manager-Worker]/retail/evaluate.py
+# # Evaluate with baseline
+# echo "=========================================="
+# echo "Evaluation: baseline"
+# echo "=========================================="
+# uv run python experiments/taubench_experiments/[Qwen3-32B]_[baseline]_[Manager-Worker]/retail/evaluate.py
 
 # # Evaluate with max_l1_norm connection strategy
 # echo "=========================================="
@@ -89,11 +89,11 @@ uv run python experiments/taubench_experiments/[Qwen3-32B]_[baseline]_[Manager-W
 # uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_product_input]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
-# # Evaluate with mean_l1_norm connection strategy
-# echo "=========================================="
-# echo "Evaluation: mean_l1_norm"
-# echo "=========================================="
-# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
+# Evaluate with mean_l1_norm connection strategy
+echo "=========================================="
+echo "Evaluation: mean_l1_norm"
+echo "=========================================="
+uv run python experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[mean_l1_norm]/evaluation_[Qwen3-32B]/evaluate.py
 
 
 # # Evaluate with mean_product_input connection strategy
