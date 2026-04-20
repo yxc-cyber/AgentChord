@@ -26,36 +26,36 @@ source /work/hdd/bghs/xyang7/miniconda3/etc/profile.d/conda.sh
 conda activate
 
 
-# Training script for Llama3.3-70B-Instruct experiments with different connection strategies
+# Training script for experiments with different connection strategies
 
-echo "Starting training for Llama3.3-70B-Instruct experiments..."
+echo "Starting training for experiments..."
 
-# # Train with max_l1_norm connection strategy
-# echo "=========================================="
-# echo "Training: max_l1_norm"
-# echo "=========================================="
-# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_l1_norm]/training/train.py
-
-
-# # Train with max_product_input connection strategy
-# echo "=========================================="
-# echo "Training: max_product_input"
-# echo "=========================================="
-# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_product_input]/training/train.py
-
-
-# Train with mean_l1_norm connection strategy
+# Train with max_l1_norm connection strategy
 echo "=========================================="
-echo "Training: mean_l1_norm"
+echo "Training: max_l1_norm"
 echo "=========================================="
-uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/training/train.py
+uv run python experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[max_l1_norm]/training/train.py
 
 
-# # Train with mean_product_input connection strategy
+# Train with max_product_input connection strategy
+echo "=========================================="
+echo "Training: max_product_input"
+echo "=========================================="
+uv run python experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[max_product_input]/training/train.py
+
+
+# # Train with mean_l1_norm connection strategy
 # echo "=========================================="
-# echo "Training: mean_product_input"
+# echo "Training: mean_l1_norm"
 # echo "=========================================="
-# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_product_input]/training/train.py
+# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/training/train.py
+
+
+# Train with mean_product_input connection strategy
+echo "=========================================="
+echo "Training: mean_product_input"
+echo "=========================================="
+uv run python experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[mean_product_input]/training/train.py
 
 
 echo "=========================================="

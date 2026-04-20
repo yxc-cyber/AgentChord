@@ -392,7 +392,6 @@ if RESUME_DIR is not None:
     optimizer.load_optimizer_state(file_path=os.path.join(RESUME_DIR, "optimizer_state.json"))
 for dialogue_idx, dialogue_case in enumerate(TaubenchEnvironment.iterate_test_cases(domain="retail", task_split="train", random_seed=42, user_model_config=user_config, user_log_name=LOG_NAME)):
     print(f"{dialogue_idx} Dialogue: {dialogue_case.task_idx}")
-    global_dialogue_state = dict()
     if dialogue_idx < SKIP_SAMPLES:
         continue
     dialogue_idx_pool.append(dialogue_case.task_idx)
