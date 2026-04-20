@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="agentchord_train"
+#SBATCH --job-name="agentchord_ltrain"
 #SBATCH --output="logs/%j.%N.agentchord_train.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=208G
@@ -34,28 +34,28 @@ echo "Starting training for experiments..."
 echo "=========================================="
 echo "Training: max_l1_norm"
 echo "=========================================="
-uv run python experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[max_l1_norm]/training/train.py
+uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_l1_norm]/training/train.py
 
 
 # Train with max_product_input connection strategy
 echo "=========================================="
 echo "Training: max_product_input"
 echo "=========================================="
-uv run python experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[max_product_input]/training/train.py
+uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_product_input]/training/train.py
 
 
-# # Train with mean_l1_norm connection strategy
-# echo "=========================================="
-# echo "Training: mean_l1_norm"
-# echo "=========================================="
-# uv run python experiments/multiwoz_24_experiments/new_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/training/train.py
+# Train with mean_l1_norm connection strategy
+echo "=========================================="
+echo "Training: mean_l1_norm"
+echo "=========================================="
+uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/training/train.py
 
 
 # Train with mean_product_input connection strategy
 echo "=========================================="
 echo "Training: mean_product_input"
 echo "=========================================="
-uv run python experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[mean_product_input]/training/train.py
+uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_product_input]/training/train.py
 
 
 echo "=========================================="

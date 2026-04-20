@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="agentchord_eval"
+#SBATCH --job-name="agentchord_leval"
 #SBATCH --output="logs/%j.%N.agentchord_eval.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=208G
@@ -27,25 +27,11 @@ conda activate
 
 
 # Run the vLLM host server in the background
-# vllm serve $SCRATCH/models/Llama-3.3-70B-Instruct \
-#         --served-model-name Llama3.3-70B-Instruct \
-#         --enable-auto-tool-choice \
-#         --tool-call-parser llama3_json \
-#         --chat-template src/agentchord/model/chat_templates/tool_chat_template_llama3.3_json.jinja \
-#         --tensor-parallel-size 4 \
-#         --quantization fp8 \
-#         --max-model-len 16384 \
-#         --max-num-seqs 1 \
-#         --gpu-memory-utilization 0.80 \
-#         --host 0.0.0.0 \
-#         --port 1911 \
-#         --api-key thisisakey \
-#         > vllm_server.log 2>&1 &
-vllm serve $SCRATCH/models/Qwen3-32B \
-        --served-model-name Qwen3-32B \
+vllm serve $SCRATCH/models/Llama-3.3-70B-Instruct \
+        --served-model-name Llama3.3-70B-Instruct \
         --enable-auto-tool-choice \
-        --tool-call-parser hermes \
-        --chat-template src/agentchord/model/chat_templates/tool_chat_template_qwen3_json_nothink.jinja \
+        --tool-call-parser llama3_json \
+        --chat-template src/agentchord/model/chat_templates/tool_chat_template_llama3.3_json.jinja \
         --tensor-parallel-size 4 \
         --quantization fp8 \
         --max-model-len 16384 \
@@ -55,6 +41,20 @@ vllm serve $SCRATCH/models/Qwen3-32B \
         --port 1911 \
         --api-key thisisakey \
         > vllm_server.log 2>&1 &
+# vllm serve $SCRATCH/models/Qwen3-32B \
+#         --served-model-name Qwen3-32B \
+#         --enable-auto-tool-choice \
+#         --tool-call-parser hermes \
+#         --chat-template src/agentchord/model/chat_templates/tool_chat_template_qwen3_json_nothink.jinja \
+#         --tensor-parallel-size 4 \
+#         --quantization fp8 \
+#         --max-model-len 16384 \
+#         --max-num-seqs 1 \
+#         --gpu-memory-utilization 0.80 \
+#         --host 0.0.0.0 \
+#         --port 1911 \
+#         --api-key thisisakey \
+#         > vllm_server.log 2>&1 &
 
 VLLM_SERVER_PID=$!
 echo "Started vLLM server with PID: $VLLM_SERVER_PID"
@@ -79,28 +79,28 @@ echo "Starting evaluation for experiments..."
 echo "=========================================="
 echo "Evaluation: max_l1_norm"
 echo "=========================================="
-uv run python experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[max_l1_norm]/evaluation_[Qwen3-32B]/evaluate.py
+uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_l1_norm]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
 # Evaluate with max_product_input connection strategy
 echo "=========================================="
 echo "Evaluation: max_product_input"
 echo "=========================================="
-uv run python experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[max_product_input]/evaluation_[Qwen3-32B]/evaluate.py
+uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_product_input]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
-# # Evaluate with mean_l1_norm connection strategy
-# echo "=========================================="
-# echo "Evaluation: mean_l1_norm"
-# echo "=========================================="
-# uv run python experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[mean_l1_norm]/evaluation_[Qwen3-32B]/evaluate.py
+# Evaluate with mean_l1_norm connection strategy
+echo "=========================================="
+echo "Evaluation: mean_l1_norm"
+echo "=========================================="
+uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
 # Evaluate with mean_product_input connection strategy
 echo "=========================================="
 echo "Evaluation: mean_product_input"
 echo "=========================================="
-uv run python experiments/taubench_experiments/[Qwen3-32B]_[product_probs]_[mean_product_input]/evaluation_[Qwen3-32B]/evaluate.py
+uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_product_input]/evaluation_[Llama3.3-70B-Instruct]/evaluate.py
 
 
 echo "=========================================="
