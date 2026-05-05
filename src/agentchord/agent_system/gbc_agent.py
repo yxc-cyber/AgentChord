@@ -200,7 +200,7 @@ class GBCAgent(BaseAgent):
                     weights=[1.0] * len(connection_pool)
                 )
             else:
-                if output_message.content.startswith("<think>") and not "</think>" in output_message.content:
+                if output_message.content and output_message.content.startswith("<think>") and not "</think>" in output_message.content:
                     self.logger.warning("Output content starts with <think> but does not end with </think>. Possible incomplete thinking.")
                     output_info = OUTPUT_TOO_MUCH_THINKING
                 else:
