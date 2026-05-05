@@ -253,6 +253,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
         self.add_on_completion_action("responder_agent", "respond", self._respond)
 
         self.dialogue_history_string = ""
+        self.manager_string = ""
 
     def on_initialization(self) -> TaubenchMetaData:
         metadata = self.environment.get_initial_metadata()
@@ -279,6 +280,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
         Finalize the metadata after the manager agent has generated the plan.
         """
         dialogue_history = self.dialogue_history_string
+        self.manager_string = metadata.output
         metadata.input = [
             GBC(f"Dialogue History:\n{dialogue_history}", connections=[self.dialogue_history_string], weights=[1.0]),
             GBC(f"manager_agent:\n{metadata.output}", connections=metadata.output.get_connections(), weights=metadata.output.get_weights())
@@ -290,8 +292,10 @@ class TaubenchRetailSystem(BaseAgentSystem):
         Finalize the metadata after the user resolution worker agent has generated the output.
         """
         dialogue_history = self.dialogue_history_string
+        manager_string = self.manager_string
         metadata.input = [
             GBC(f"Dialogue History:\n{dialogue_history}", connections=[self.dialogue_history_string], weights=[1.0]),
+            GBC(f"manager_agent:\n{manager_string}", connections=manager_string.get_connections(), weights=manager_string.get_weights()),
             GBC(f"worker_agent(user_resolution):\n{metadata.output}", connections=metadata.output.get_connections(), weights=metadata.output.get_weights())
         ]
         return metadata
@@ -301,8 +305,10 @@ class TaubenchRetailSystem(BaseAgentSystem):
         Finalize the metadata after the retrieval worker agent has generated the output.
         """
         dialogue_history = self.dialogue_history_string
+        manager_string = self.manager_string
         metadata.input = [
             GBC(f"Dialogue History:\n{dialogue_history}", connections=[self.dialogue_history_string], weights=[1.0]),
+            GBC(f"manager_agent:\n{manager_string}", connections=manager_string.get_connections(), weights=manager_string.get_weights()),
             GBC(f"worker_agent(retrieval):\n{metadata.output}", connections=metadata.output.get_connections(), weights=metadata.output.get_weights())
         ]
         return metadata
@@ -312,8 +318,10 @@ class TaubenchRetailSystem(BaseAgentSystem):
         Finalize the metadata after the post-delivery/order-modification/user-profile worker agents have generated the output.
         """
         dialogue_history = self.dialogue_history_string
+        manager_string = self.manager_string
         metadata.input = [
             GBC(f"Dialogue History:\n{dialogue_history}", connections=[self.dialogue_history_string], weights=[1.0]),
+            GBC(f"manager_agent:\n{manager_string}", connections=manager_string.get_connections(), weights=manager_string.get_weights()),
             GBC(f"worker_agent(post_delivery):\n{metadata.output[0]}", connections=metadata.output[0].get_connections(), weights=metadata.output[0].get_weights()),
             GBC(f"worker_agent(order_modification):\n{metadata.output[1]}", connections=metadata.output[1].get_connections(), weights=metadata.output[1].get_weights()),
             GBC(f"worker_agent(user_profile):\n{metadata.output[2]}", connections=metadata.output[2].get_connections(), weights=metadata.output[2].get_weights())
