@@ -20,16 +20,16 @@ from agentchord import (
 # evaluation configuration
 CHECKPOINT_DIR = "experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_product_input]/training"
 TARGET_DIR = "experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_product_input]/evaluation_[Llama3.3-70B-Instruct]"
-# CLIENT_MODEL = "openai/Llama3.3-70B-Instruct"
-CLIENT_MODEL = "openrouter/meta-llama/llama-3.3-70b-instruct"
+CLIENT_MODEL = "openai/Llama3.3-70B-Instruct"
+# CLIENT_MODEL = "openrouter/meta-llama/llama-3.3-70b-instruct"
 USER_CLIENT_MODEL = "openai/gpt-4o-mini"
 LOG_NAME = "[TauBench]_[Llama3.3-70B-Instruct]_[Eval]_[product_probs]_[max_product_input].log"
 
 # Configuration for the model
 config = ModelConfig(
     client_model=CLIENT_MODEL,
-    # base_url=dotenv.get_key(dotenv.find_dotenv(), "Proxy_API_BASE"),
-    # api_key=dotenv.get_key(dotenv.find_dotenv(), "Proxy_API_KEY"),
+    base_url=dotenv.get_key(dotenv.find_dotenv(), "Proxy_API_BASE"),
+    api_key=dotenv.get_key(dotenv.find_dotenv(), "Proxy_API_KEY"),
     temperature=0.0,
     max_completion_tokens=1024,
     enable_thinking=False,
@@ -249,7 +249,7 @@ def convert_sets(obj):
     raise TypeError(f"Type {type(obj)} not serializable")
 
 total_record = dict()
-for checkpoint_idx in range(1, 2):
+for checkpoint_idx in range(6, 11):
     taubench_retail_system.load_agents(file_name=os.path.join(CHECKPOINT_DIR, f"checkpoint-{checkpoint_idx}/taubench_retail_system_agents.json"))
     dialogue_idx_pool = list()
     for dialogue_idx, dialogue_case in enumerate(TaubenchEnvironment.iterate_test_cases(domain="retail", task_split="test", random_seed=42, user_model_config=user_config, user_log_name=LOG_NAME)):
