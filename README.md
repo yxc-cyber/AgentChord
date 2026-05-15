@@ -1,3 +1,7 @@
+<div align="center"  id="banner">
+<img src="assets/Banner.svg" alt="logo"  margin="10px"></img>
+</div>
+
 # AgentChord
   
 AgentChord is a flexible framework for building, simulating, and optimizing multi-agent systems. It provides core abstractions and utilities to help you design, implement, and experiment with agent-based models efficiently.
