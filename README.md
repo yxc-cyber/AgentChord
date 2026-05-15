@@ -4,7 +4,7 @@
 
 # AgentChord
   
-AgentChord is a flexible framework for building, simulating, and optimizing multi-agent systems. It provides core abstractions and utilities to help you design, implement, and experiment with agent-based models efficiently.
+AgentChord is a flexible framework for building, running, and optimizing multi-agent systems (MAS). It provides core abstractions and utilities to help you design, implement, and experiment with MAS efficiently.
 
 ## Features
 
