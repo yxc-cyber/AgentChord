@@ -20,16 +20,16 @@ from agentchord import (
 # evaluation configuration
 CHECKPOINT_DIR = "experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/training"
 TARGET_DIR = "experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/evaluation_[Llama3.3-70B-Instruct]"
-# CLIENT_MODEL = "openai/Llama3.3-70B-Instruct"
-CLIENT_MODEL = "openrouter/meta-llama/llama-3.3-70b-instruct"
+CLIENT_MODEL = "openai/Llama3.3-70B-Instruct"
+# CLIENT_MODEL = "openrouter/meta-llama/llama-3.3-70b-instruct"
 USER_CLIENT_MODEL = "openai/gpt-4o-mini"
 LOG_NAME = "[TauBench]_[Llama3.3-70B-Instruct]_[Eval]_[product_probs]_[mean_l1_norm].log"
 
 # Configuration for the model
 config = ModelConfig(
     client_model=CLIENT_MODEL,
-    # base_url=dotenv.get_key(dotenv.find_dotenv(), "Proxy_API_BASE"),
-    # api_key=dotenv.get_key(dotenv.find_dotenv(), "Proxy_API_KEY"),
+    base_url=dotenv.get_key(dotenv.find_dotenv(), "Proxy_API_BASE"),
+    api_key=dotenv.get_key(dotenv.find_dotenv(), "Proxy_API_KEY"),
     temperature=0.0,
     max_completion_tokens=1024,
     enable_thinking=False,
@@ -135,6 +135,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
         self.add_on_completion_action("responder_agent", "respond", self._respond)
 
         self.dialogue_history_string = ""
+        self.manager_string = ""
 
     def on_initialization(self) -> TaubenchMetaData:
         metadata = self.environment.get_initial_metadata()
@@ -158,6 +159,7 @@ class TaubenchRetailSystem(BaseAgentSystem):
         Finalize the metadata after the manager agent has generated the plan.
         """
         dialogue_history = self.dialogue_history_string
+        self.manager_string = metadata.output
         metadata.input = [
             f"Dialogue History:\n{dialogue_history}",
             f"manager_agent:\n{metadata.output}",
@@ -169,8 +171,10 @@ class TaubenchRetailSystem(BaseAgentSystem):
         Finalize the metadata after the user resolution worker agent has generated the output.
         """
         dialogue_history = self.dialogue_history_string
+        manager_string = self.manager_string
         metadata.input = [
             f"Dialogue History:\n{dialogue_history}",
+            f"manager_agent:\n{manager_string}",
             f"worker_agent(user_resolution):\n{metadata.output}",
         ]
         return metadata
@@ -180,8 +184,10 @@ class TaubenchRetailSystem(BaseAgentSystem):
         Finalize the metadata after the retrieval worker agent has generated the output.
         """
         dialogue_history = self.dialogue_history_string
+        manager_string = self.manager_string
         metadata.input = [
             f"Dialogue History:\n{dialogue_history}",
+            f"manager_agent:\n{manager_string}",
             f"worker_agent(retrieval):\n{metadata.output}",
         ]
         return metadata
@@ -191,8 +197,10 @@ class TaubenchRetailSystem(BaseAgentSystem):
         Finalize the metadata after the post-delivery/order-modification/user-profile worker agents have generated the output.
         """
         dialogue_history = self.dialogue_history_string
+        manager_string = self.manager_string
         metadata.input = [
             f"Dialogue History:\n{dialogue_history}",
+            f"manager_agent:\n{manager_string}",
             f"worker_agent(post_delivery):\n{metadata.output[0]}",
             f"worker_agent(order_modification):\n{metadata.output[1]}",
             f"worker_agent(user_profile):\n{metadata.output[2]}",
@@ -241,7 +249,7 @@ def convert_sets(obj):
     raise TypeError(f"Type {type(obj)} not serializable")
 
 total_record = dict()
-for checkpoint_idx in range(1, 2):
+for checkpoint_idx in range(5, 11):
     taubench_retail_system.load_agents(file_name=os.path.join(CHECKPOINT_DIR, f"checkpoint-{checkpoint_idx}/taubench_retail_system_agents.json"))
     dialogue_idx_pool = list()
     for dialogue_idx, dialogue_case in enumerate(TaubenchEnvironment.iterate_test_cases(domain="retail", task_split="test", random_seed=42, user_model_config=user_config, user_log_name=LOG_NAME)):
