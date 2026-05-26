@@ -248,7 +248,7 @@ def convert_sets(obj):
     raise TypeError(f"Type {type(obj)} not serializable")
 
 total_record = dict()
-for checkpoint_idx in range(4, 11):
+for checkpoint_idx in range(10, 11):
     taubench_retail_system.load_agents(file_name=os.path.join(CHECKPOINT_DIR, f"checkpoint-{checkpoint_idx}/taubench_retail_system_agents.json"))
     dialogue_idx_pool = list()
     for dialogue_idx, dialogue_case in enumerate(TaubenchEnvironment.iterate_test_cases(domain="retail", task_split="test", random_seed=42, user_model_config=user_config, user_log_name=LOG_NAME)):

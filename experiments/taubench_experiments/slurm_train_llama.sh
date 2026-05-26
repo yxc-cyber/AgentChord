@@ -30,11 +30,11 @@ conda activate
 
 echo "Starting training for experiments..."
 
-# # Train with max_l1_norm connection strategy
-# echo "=========================================="
-# echo "Training: max_l1_norm"
-# echo "=========================================="
-# uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_l1_norm]/training/train.py
+# Train with max_l1_norm connection strategy
+echo "=========================================="
+echo "Training: max_l1_norm"
+echo "=========================================="
+uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_l1_norm]/training/train.py
 
 
 # # Train with max_product_input connection strategy
@@ -44,11 +44,11 @@ echo "Starting training for experiments..."
 # uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_product_input]/training/train.py
 
 
-# Train with mean_l1_norm connection strategy
-echo "=========================================="
-echo "Training: mean_l1_norm"
-echo "=========================================="
-uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/training/train.py
+# # Train with mean_l1_norm connection strategy
+# echo "=========================================="
+# echo "Training: mean_l1_norm"
+# echo "=========================================="
+# uv run python experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[mean_l1_norm]/training/train.py
 
 
 # # Train with mean_product_input connection strategy

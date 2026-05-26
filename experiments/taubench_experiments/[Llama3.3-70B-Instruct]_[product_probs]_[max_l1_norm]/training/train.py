@@ -34,8 +34,9 @@ USER_CLIENT_MODEL = "openai/gpt-4o-mini"
 UPDATE_STEP = 1
 TOTAL_TRAINING_SAMPLES = 10
 # training resume configuration
-RESUME_DIR = None
-SKIP_SAMPLES = 0
+# RESUME_DIR = None
+RESUME_DIR = "experiments/taubench_experiments/[Llama3.3-70B-Instruct]_[product_probs]_[max_l1_norm]/training/checkpoint-9"
+SKIP_SAMPLES = 9
 # model loading configuration
 LOCAL_MODEL = "LlamaModel"
 MODEL_PATH = "/work/hdd/bghs/xyang7/models/Llama-3.3-70B-Instruct"
