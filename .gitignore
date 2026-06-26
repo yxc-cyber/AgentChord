@@ -3,6 +3,7 @@
 
 # Private files
 .env
+.vscode
 logs/
 !logs/app.log
 **/scratch*
