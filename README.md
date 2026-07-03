@@ -205,10 +205,22 @@ optimizer.save_optimizer_state(file_path="optimizer_state.json")
 
 - See `examples/multiwoz_24_examples/` for more details.
 
-## Contributing
-
-Contributions are welcome! Please open issues or submit pull requests for improvements and new features.
-
 ## License
 
 This project is licensed under the MIT License.
+
+## Citation
+
+If you use this code in your research, please cite:
+
+```bibtex
+@misc{yang2026gbcgradientbasedconnectionsoptimizing,
+      title={GBC: Gradient-Based Connections for Optimizing Multi-Agent Systems}, 
+      author={Xiaocheng Yang and Abdulrahman Alrabah and Dilek Hakkani-Tür and Gokhan Tur},
+      year={2026},
+      eprint={2606.28187},
+      archivePrefix={arXiv},
+      primaryClass={cs.MA},
+      url={https://arxiv.org/abs/2606.28187}, 
+}
+```
